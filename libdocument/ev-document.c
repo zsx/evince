@@ -26,6 +26,10 @@
 
 #include "ev-document.h"
 
+#ifdef _MSC_VER
+#define strcasecmp strcmpi
+#endif
+
 #define EV_DOCUMENT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), EV_TYPE_DOCUMENT, EvDocumentPrivate))
 
 typedef struct _EvPageSize

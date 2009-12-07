@@ -18,10 +18,11 @@
  */
 
 #include <config.h>
-
 #include <stdlib.h>
 #include <sys/types.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <errno.h>
 
@@ -194,6 +195,51 @@ ev_mkstemp_file (const char        *template,
 
         return file;
 }
+#ifdef _WIN32
+/* adept from 
+ * http://launchpadlibrarian.net/18612070/mkdtemp.diff */
+/* #include <stdint.h> */
+#include <windows.h>
+
+char * mkdtemp(char *tmpl) {
+	char *x_tail;
+	unsigned __int64 value;
+    unsigned int cnt = 0;
+    static const char charset[] = 
+        "=#abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    static const unsigned int charset_len = sizeof(charset) - 1;
+
+    const int len = strlen (tmpl);
+    LARGE_INTEGER rand_seed;
+
+    if (len < 6)
+        return NULL;
+    x_tail = tmpl + len - 6;
+    if(memcmp(x_tail, "XXXXXX", 6)) 
+        return NULL;
+
+    QueryPerformanceCounter(&rand_seed);
+    value = rand_seed.QuadPart ^ GetCurrentThreadId();
+
+    do {
+        unsigned __int64 val = value;
+        char* x_char = x_tail;
+        while(*x_char) {
+            *x_char++ = charset[val % charset_len];
+            val /= charset_len;
+        }
+        if (CreateDirectory (tmpl, NULL))
+            return tmpl;
+        if (ERROR_ALREADY_EXISTS != GetLastError())
+            return NULL;
+        value += 65537;
+        ++cnt;
+    } while (cnt < TMP_MAX);
+
+    return NULL;
+}
+
+#endif
 
 /**
  * ev_mkdtemp:

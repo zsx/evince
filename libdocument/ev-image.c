@@ -20,7 +20,9 @@
 #include <config.h>
 
 #include <glib/gstdio.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 #include "ev-document-misc.h"
 #include "ev-file-helpers.h"

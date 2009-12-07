@@ -1,0 +1,123 @@
+# vim: ft=python expandtab
+import tempfile
+import re
+import subprocess
+import os
+
+Import('env EV_BINARY_VERSION EV_API_VERSION')
+'''
+	-DG_LOG_DOMAIN=\"EvinceDocument\"		\
+	-DEVINCE_UIDIR=\"$(pkgdatadir)\"		\
+	-DGNOMELOCALEDIR=\"$(datadir)/locale\"		\
+	-DEV_BACKENDSDIR=\"$(backenddir)\"		\
+	-DEV_BACKENDSBINARYVERSION=\"$(backend_binary_version)\"	\
+	-DEVINCE_COMPILATION				\
+'''
+env.Append(CPPDEFINES = [("G_LOG_DOMAIN", r'"\"EvinceDocument\""'), 
+                         ("EVINCE_UIDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\evince\""'),
+                         ("GNOMELOCALEDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\locale\""'),
+                         ("EV_BACKENDSDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\lib\\evince\\%s\""'% EV_BINARY_VERSION),
+                         ("EV_BACKENDSBINARYVERSION", r'"\"' + EV_BINARY_VERSION + r'\""'),
+                         ("EVINCE_COMPILATION")])
+env.Append(CPPPATH=['#', '#libdocument', '../msvc'])
+
+env_evdocument = env.Clone(PDB='libevdocument.pdb')
+
+evdocument_headers = Split("\
+	ev-annotation.h				\
+	ev-async-renderer.h			\
+	ev-attachment.h				\
+	ev-backends-manager.h			\
+	ev-document-factory.h			\
+	ev-document-annotations.h		\
+	ev-document-attachments.h		\
+	ev-document-find.h			\
+	ev-document-fonts.h			\
+	ev-document-forms.h			\
+	ev-document.h				\
+	ev-document-images.h			\
+	ev-document-info.h			\
+	ev-document-layers.h			\
+	ev-document-links.h			\
+	ev-document-misc.h			\
+	ev-document-print.h			\
+	ev-document-security.h			\
+	ev-document-thumbnails.h		\
+	ev-document-transition.h		\
+	ev-file-exporter.h			\
+	ev-file-helpers.h			\
+	ev-form-field.h				\
+	ev-image.h				\
+	ev-init.h				\
+	ev-layer.h				\
+	ev-link-action.h			\
+	ev-link-dest.h				\
+	ev-link.h				\
+	ev-mapping.h				\
+	ev-page.h				\
+	ev-render-context.h			\
+	ev-selection.h				\
+	ev-transition-effect.h			\
+	ev-version.h")
+
+
+evdocument_sources =Split("\
+	ev-annotation.c				\
+	ev-async-renderer.c			\
+	ev-attachment.c				\
+	ev-backends-manager.c			\
+	ev-layer.c				\
+	ev-link.c				\
+	ev-link-action.c			\
+	ev-link-dest.c				\
+	ev-image.c				\
+	ev-init.c				\
+	ev-document.c				\
+	ev-document-annotations.c		\
+	ev-document-attachments.c		\
+	ev-document-factory.c			\
+	ev-document-thumbnails.c		\
+	ev-document-fonts.c                     \
+	ev-document-layers.c			\
+	ev-document-links.c			\
+	ev-document-images.c			\
+	ev-document-print.c			\
+	ev-document-security.c			\
+	ev-document-find.c			\
+	ev-document-transition.c		\
+	ev-document-forms.c			\
+	ev-document-type-builtins.c		\
+	ev-form-field.c 			\
+	ev-debug.c				\
+	ev-file-exporter.c			\
+	ev-file-helpers.c			\
+	ev-mapping.c				\
+	ev-module.c				\
+	ev-page.c				\
+	ev-render-context.c			\
+	ev-selection.c				\
+	ev-transition-effect.c			\
+	ev-document-misc.c")
+
+env_evdocument.Command('ev-document-type-builtins.h', ['ev-document-type-builtins.h.template', 'SConscript'] + evdocument_headers, '%s %s\\bin\\glib-mkenums --template $SOURCE %s > $TARGET' % (env_evdocument['PERL'], env_evdocument['PREFIX'], " ".join(map(lambda x: 'libdocument/' + x, evdocument_headers))))
+
+env_evdocument.Command('ev-document-type-builtins.c', ['ev-document-type-builtins.c.template', 'SConscript'] + evdocument_headers, '%s %s\\bin\\glib-mkenums --template $SOURCE %s > $TARGET' % (env_evdocument['PERL'], env_evdocument['PREFIX'], " ".join(map(lambda x: 'libdocument/' + x, evdocument_headers))))
+
+env_evdocument.Alias('install', env_evdocument.Install('$PREFIX/include/evdocument/%s/libdocument' % EV_API_VERSION, evdocument_headers + ['ev-document-types-builtins.h']))
+
+env_evdocument.ParseConfig('pkg-config glib-2.0 --cflags --libs')
+env_evdocument.ParseConfig('pkg-config gio-2.0 --cflags --libs')
+env_evdocument.ParseConfig('pkg-config gtk+-2.0 --cflags --libs')
+env_evdocument.ParseConfig('pkg-config atk --cflags --libs')
+env_evdocument.ParseConfig('pkg-config cairo --cflags --libs')
+env_evdocument.ParseConfig('pkg-config pango --cflags --libs')
+#env_evdocument.ParseConfig('pkg-config gmodule-2.0 --cflags --libs')
+#env_evdocument.Append(LIBS = ['msimg32',  'gdi32', 'user32'])
+dll = env_evdocument.SharedLibrary(['libevdocument' + env_evdocument['LIB_SUFFIX'] + '.dll', 'evdocument.lib'], evdocument_sources + ['libdocument.def'])
+env_evdocument.AddPostAction(dll, 'mt.exe -nologo -manifest ${TARGET}.manifest -outputresource:$TARGET;2')
+env_evdocument.Alias('install', env_evdocument.Install('$PREFIX/bin', 'libevdocument' + env_evdocument['LIB_SUFFIX'] + '.dll'))
+env_evdocument.Alias('install', env_evdocument.Install('$PREFIX/lib', 'evdocument.lib'))
+env_evdocument.Alias('install', env_evdocument.InstallAs('$PREFIX/lib/libevdocument.lib', 'evdocument.lib'))
+if env_evdocument['DEBUG'] == 1:
+    env_evdocument.Alias('install', env_evdocument.Install('$PREFIX/pdb', 'libevdocument.pdb'))
+
