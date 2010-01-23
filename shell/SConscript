@@ -1,0 +1,71 @@
+# vim: ft=python expandtab
+
+Import('env')
+'''
+	-I$(top_srcdir)				\
+	-I$(top_srcdir)/libdocument		\
+	-DGNOMELOCALEDIR=\"$(datadir)/locale\"  \
+	-DEVINCE_COMPILATION			\
+	$(BACKEND_CFLAGS)			\
+	$(POPPLER_CFLAGS)                       \
+	$(WARN_CXXFLAGS)			\
+	$(DISABLE_DEPRECATED)
+'''
+env_evshell = env.Clone(PDB='evince.pdb')
+env_evshell.Append(CPPDEFINES = [("GNOMELOCALEDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\locale\""'),
+                                 ("GNOMEICONDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\evince\\pixmap\""'),
+                                 ("BINDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\bin\""'),
+                                 ("LIBEXEDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\bin\""'),
+                                 ("DATADIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\evince\""'),
+                                 ("GNOMEDATADIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\evince\""'),
+                                 ("EVINCE_COMPILATION")])
+env_evshell.Append(CPPPATH=['#', '#libdocument', '#libview', '#properties', '#libmisc', '#cut-n-paste/totem-screensaver', '#cut-n-paste/evinfobar', '#cut-n-paste/zoom-control', '#cut-n-paste/toolbar-editor', '#cut-n-paste/gimpcellrenderertoggle', '#cut-n-paste/smclient', '../msvc'])
+
+evince_SOURCES=Split("\
+	eggfindbar.c			\
+	ev-application.c		\
+	ev-file-monitor.c		\
+	ev-history.c			\
+	ev-keyring.c			\
+	ev-marshal.c			\
+	ev-message-area.c		\
+	ev-metadata.c			\
+	ev-navigation-action.c		\
+	ev-navigation-action-widget.c	\
+	ev-password-view.c		\
+	ev-print-operation.c		\
+	ev-progress-message-area.c	\
+	ev-properties-dialog.c		\
+	ev-properties-fonts.c		\
+	ev-properties-license.c		\
+	ev-open-recent-action.c		\
+	ev-utils.c			\
+	ev-window.c			\
+	ev-window-title.c		\
+	ev-sidebar.c			\
+	ev-sidebar-attachments.c	\
+	ev-sidebar-layers.c		\
+	ev-sidebar-links.c		\
+	ev-sidebar-page.c		\
+	ev-sidebar-thumbnails.c		\
+	main.c")
+
+env_evshell['GLIB_GENMARSHAL_ARGV'] = [('prefix', 'ev_marshal')]
+env_evshell.MarshalGenerator(['ev-marshal.c', 'ev-marshal.h'], 'ev-marshal.list')
+env_evshell.Depends(['ev-marshal.c', 'ev-marshal.h'], 'SConscript')
+
+env_evshell.ParseConfig('pkg-config glib-2.0 --cflags --libs')
+env_evshell.ParseConfig('pkg-config gthread-2.0 --cflags --libs')
+env_evshell.ParseConfig('pkg-config gio-2.0 --cflags --libs')
+env_evshell.ParseConfig('pkg-config gtk+-2.0 --cflags --libs')
+env_evshell.ParseConfig('pkg-config atk --cflags --libs')
+env_evshell.ParseConfig('pkg-config cairo --cflags --libs')
+env_evshell.ParseConfig('pkg-config pango --cflags --libs')
+env_evshell.ParseConfig('pkg-config poppler-glib --cflags --libs')
+env_evshell.ParseConfig('pkg-config libxml-2.0 --cflags --libs')
+
+evince = env_evshell.Program(['evince.exe'], evince_SOURCES + ['#properties/evproperties.lib', '#libdocument/evdocument.lib', '#libview/evview.lib', '#libmisc/evmisc.lib', '#cut-n-paste/evinfobar/evinfobar.lib', '#cut-n-paste/smclient/evsmclient.lib', '#cut-n-paste/toolbar-editor/evtoolbareditor.lib', '#cut-n-paste/totem-screensaver/evtotemscrsaver.lib','#cut-n-paste/gimpcellrenderertoggle/evgimpcellrenderertoggle.lib', '#cut-n-paste/zoom-control/evephyzoom.lib'])
+env_evshell.AddPostAction(evince, 'mt.exe -nologo -manifest ${TARGET}.manifest -outputresource:$TARGET;2')
+env_evshell.Alias('install', env_evshell.Install('$PREFIX/bin', 'evince.exe'))
+if env_evshell['DEBUG'] == 1:
+    env_evshell.Alias('install', env_evshell.Install('$PREFIX/pdb', 'evince.pdb'))

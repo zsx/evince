@@ -1,10 +1,6 @@
 # vim: ft=python expandtab
-import tempfile
-import re
-import subprocess
-import os
 
-Import('env EV_BINARY_VERSION EV_API_VERSION')
+Import('env EV_BINARY_VERSION EV_API_VERSION gen_def')
 '''
 	-DG_LOG_DOMAIN=\"EvinceDocument\"		\
 	-DEVINCE_UIDIR=\"$(pkgdatadir)\"		\
@@ -13,15 +9,15 @@ Import('env EV_BINARY_VERSION EV_API_VERSION')
 	-DEV_BACKENDSBINARYVERSION=\"$(backend_binary_version)\"	\
 	-DEVINCE_COMPILATION				\
 '''
-env.Append(CPPDEFINES = [("G_LOG_DOMAIN", r'"\"EvinceDocument\""'), 
+env_evdocument = env.Clone(PDB='libevdocument.pdb')
+env_evdocument.Append(CPPDEFINES = [("G_LOG_DOMAIN", r'"\"EvinceDocument\""'), 
                          ("EVINCE_UIDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\evince\""'),
                          ("GNOMELOCALEDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\locale\""'),
                          ("EV_BACKENDSDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\lib\\evince\\%s\""'% EV_BINARY_VERSION),
                          ("EV_BACKENDSBINARYVERSION", r'"\"' + EV_BINARY_VERSION + r'\""'),
                          ("EVINCE_COMPILATION")])
-env.Append(CPPPATH=['#', '#libdocument', '../msvc'])
+env_evdocument.Append(CPPPATH=['#', '#libdocument', '../msvc'])
 
-env_evdocument = env.Clone(PDB='libevdocument.pdb')
 
 evdocument_headers = Split("\
 	ev-annotation.h				\
@@ -99,11 +95,22 @@ evdocument_sources =Split("\
 	ev-transition-effect.c			\
 	ev-document-misc.c")
 
+env_evdocument_mk_h = env_evdocument.Clone()
+env_evdocument_mk_h['GLIB_MKENUMS_ARGV'] = [('template', 'libdocument/ev-document-type-builtins.h.template')]
+env_evdocument_mk_h.MkenumsGenerator('ev-document-type-builtins.h', evdocument_headers)
+env_evdocument_mk_h.Depends('ev-document-type-builtins.h', 'SConscript')
+
+env_evdocument_mk_c = env_evdocument.Clone()
+env_evdocument_mk_c['GLIB_MKENUMS_ARGV'] = [('template', 'libdocument/ev-document-type-builtins.c.template')]
+env_evdocument_mk_c.MkenumsGenerator('ev-document-type-builtins.c', evdocument_headers)
+env_evdocument_mk_c.Depends('ev-document-type-builtins.c', 'SConscript')
+
+'''
 env_evdocument.Command('ev-document-type-builtins.h', ['ev-document-type-builtins.h.template', 'SConscript'] + evdocument_headers, '%s %s\\bin\\glib-mkenums --template $SOURCE %s > $TARGET' % (env_evdocument['PERL'], env_evdocument['PREFIX'], " ".join(map(lambda x: 'libdocument/' + x, evdocument_headers))))
 
 env_evdocument.Command('ev-document-type-builtins.c', ['ev-document-type-builtins.c.template', 'SConscript'] + evdocument_headers, '%s %s\\bin\\glib-mkenums --template $SOURCE %s > $TARGET' % (env_evdocument['PERL'], env_evdocument['PREFIX'], " ".join(map(lambda x: 'libdocument/' + x, evdocument_headers))))
-
-env_evdocument.Alias('install', env_evdocument.Install('$PREFIX/include/evdocument/%s/libdocument' % EV_API_VERSION, evdocument_headers + ['ev-document-types-builtins.h']))
+'''
+env_evdocument.Alias('install', env_evdocument.Install('$PREFIX/include/evince/%s/libdocument' % EV_API_VERSION, evdocument_headers + ['ev-document-type-builtins.h']))
 
 env_evdocument.ParseConfig('pkg-config glib-2.0 --cflags --libs')
 env_evdocument.ParseConfig('pkg-config gio-2.0 --cflags --libs')
@@ -113,6 +120,7 @@ env_evdocument.ParseConfig('pkg-config cairo --cflags --libs')
 env_evdocument.ParseConfig('pkg-config pango --cflags --libs')
 #env_evdocument.ParseConfig('pkg-config gmodule-2.0 --cflags --libs')
 #env_evdocument.Append(LIBS = ['msimg32',  'gdi32', 'user32'])
+env_evdocument.Command('libdocument.def', evdocument_headers, gen_def)
 dll = env_evdocument.SharedLibrary(['libevdocument' + env_evdocument['LIB_SUFFIX'] + '.dll', 'evdocument.lib'], evdocument_sources + ['libdocument.def'])
 env_evdocument.AddPostAction(dll, 'mt.exe -nologo -manifest ${TARGET}.manifest -outputresource:$TARGET;2')
 env_evdocument.Alias('install', env_evdocument.Install('$PREFIX/bin', 'libevdocument' + env_evdocument['LIB_SUFFIX'] + '.dll'))

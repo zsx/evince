@@ -1,0 +1,85 @@
+# vim: ft=python expandtab
+import tempfile
+import re
+import subprocess
+import os
+
+Import('env EV_BINARY_VERSION EV_API_VERSION gen_def')
+'''
+	-DDATADIR=\"$(pkgdatadir)\"		\
+	-DG_LOG_DOMAIN=\"EvinceView\"		\
+	-DGNOMELOCALEDIR=\"$(datadir)/locale\"	\
+	-DEVINCE_COMPILATION			\
+	-I$(top_srcdir)				\
+	-I$(top_srcdir)/libview		\
+	-I$(top_builddir)			\
+'''
+env_evview = env.Clone(PDB='libevview.pdb')
+
+env_evview.Append(CPPDEFINES = [("G_LOG_DOMAIN", r'"\"EvinceView\""'), 
+                         ("DATADIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\evince\""'),
+                         ("GNOMELOCALEDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\locale\""'),
+                         ("EVINCE_COMPILATION")])
+env_evview.Append(CPPPATH=['#', '#libview', '#libdocument', '../msvc'])
+
+INST_H_FILES = Split("\
+	ev-document-model.h		\
+	ev-jobs.h			\
+	ev-job-scheduler.h		\
+	ev-stock-icons.h		\
+	ev-view.h")
+
+libevview_la_SOURCES =Split("\
+	ev-annotation-window.c		\
+	ev-document-model.c		\
+	ev-jobs.c			\
+	ev-job-scheduler.c		\
+	ev-pixbuf-cache.c		\
+	ev-stock-icons.c		\
+	ev-timeline.c			\
+	ev-transition-animation.c	\
+	ev-view.c			\
+	ev-view-accessible.c		\
+	ev-view-marshal.c		\
+	ev-view-type-builtins.c")
+'''
+env_evview.Command('ev-view-type-builtins.h', ['ev-view-type-builtins.h.template', 'SConscript'] + evview_headers, '%s %s\\bin\\glib-mkenums --template $SOURCE %s > $TARGET' % (env_evview['PERL'], env_evview['PREFIX'], " ".join(map(lambda x: 'libview/' + x, evview_headers))))
+
+env_evview.Command('ev-view-type-builtins.c', ['ev-view-type-builtins.c.template', 'SConscript'] + evview_headers, '%s %s\\bin\\glib-mkenums --template $SOURCE %s > $TARGET' % (env_evview['PERL'], env_evview['PREFIX'], " ".join(map(lambda x: 'libview/' + x, evview_headers))))
+'''
+env_evview_mk_h = env_evview.Clone()
+env_evview_mk_h['GLIB_MKENUMS_ARGV'] = [('template', 'libview/ev-view-type-builtins.h.template')]
+env_evview_mk_h.MkenumsGenerator('ev-view-type-builtins.h', INST_H_FILES)
+env_evview_mk_h.Depends('ev-view-type-builtins.h', 'SConscript')
+
+env_evview_mk_c = env_evview.Clone()
+env_evview_mk_c['GLIB_MKENUMS_ARGV'] = [('template', 'libview/ev-view-type-builtins.c.template')]
+env_evview_mk_c.MkenumsGenerator('ev-view-type-builtins.c', INST_H_FILES)
+env_evview_mk_c.Depends('ev-view-type-builtins.c', 'SConscript')
+
+env_evview['GLIB_GENMARSHAL_ARGV'] = [('prefix', 'ev_view_marshal')]
+env_evview.MarshalGenerator(['ev-view-marshal.c', 'ev-view-marshal.h'], 'ev-view-marshal.list')
+env_evview.Depends(['ev-view-marshal.c', 'ev-view-marshal.h'], 'SConscript')
+
+env_evview.Alias('install', env_evview.Install('$PREFIX/include/evince/%s/libview' % EV_API_VERSION, INST_H_FILES + ['ev-view-type-builtins.h']))
+
+env_evview.ParseConfig('pkg-config glib-2.0 --cflags --libs')
+env_evview.ParseConfig('pkg-config gio-2.0 --cflags --libs')
+env_evview.ParseConfig('pkg-config gtk+-2.0 --cflags --libs')
+env_evview.ParseConfig('pkg-config atk --cflags --libs')
+env_evview.ParseConfig('pkg-config cairo --cflags --libs')
+env_evview.ParseConfig('pkg-config pango --cflags --libs')
+env_evview.ParseConfig('pkg-config pangocairo --cflags --libs')
+#env_evview.ParseConfig('pkg-config gmodule-2.0 --cflags --libs')
+#env_evview.Append(LIBS = ['msimg32',  'gdi32', 'user32'])
+env_evview['DEF_ADDONS'] = ('ev_sizing_mode_get_type\n',)
+env_evview.Command('libview.def', INST_H_FILES, gen_def)
+dll = env_evview.SharedLibrary(['libevview' + env_evview['LIB_SUFFIX'] + '.dll', 'evview.lib'], libevview_la_SOURCES + ['libview.def', '#libdocument/evdocument.lib'])
+env_evview.AddPostAction(dll, 'mt.exe -nologo -manifest ${TARGET}.manifest -outputresource:$TARGET;2')
+env_evview.Depends(dll, ['ev-view-type-builtins.h'])
+env_evview.Alias('install', env_evview.Install('$PREFIX/bin', 'libevview' + env_evview['LIB_SUFFIX'] + '.dll'))
+env_evview.Alias('install', env_evview.Install('$PREFIX/lib', 'evview.lib'))
+env_evview.Alias('install', env_evview.InstallAs('$PREFIX/lib/libevview.lib', 'evview.lib'))
+if env_evview['DEBUG'] == 1:
+    env_evview.Alias('install', env_evview.Install('$PREFIX/pdb', 'libevview.pdb'))
+

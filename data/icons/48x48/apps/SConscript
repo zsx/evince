@@ -1,0 +1,6 @@
+# vim: ft=python expandtab
+
+Import('env')
+
+icons_DATA = "evince.png"
+env.Alias('install', env.Install('$PREFIX/share/evince/icons/hicolor/48x48/apps', icons_DATA))

@@ -1,0 +1,29 @@
+# vim: ft=python expandtab
+
+Import('env')
+'''
+	-DDATADIR=\"$(pkgdatadir)\"	\
+	-I$(top_srcdir)			\
+	-I$(top_srcdir)/libdocument	\
+	-I$(top_srcdir)/libview		\
+	$(SHELL_CORE_CFLAGS)    	\
+	$(WARNING_CFLAGS)       	\
+	$(DISABLE_DEPRECATED)
+'''
+env_evmisc = env.Clone(PDB='libevmisc.pdb')
+env_evmisc.Append(CPPDEFINES = [("DATADIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\evince\""')])
+env_evmisc.Append(CPPPATH=['#', '#libmisc', '#libview', '#document', '../msvc'])
+
+
+libevmisc_la_SOURCES = Split("\
+	ev-page-action.c	\
+	ev-page-action-widget.c")
+
+env_evmisc.ParseConfig('pkg-config glib-2.0 --cflags --libs')
+env_evmisc.ParseConfig('pkg-config gio-2.0 --cflags --libs')
+env_evmisc.ParseConfig('pkg-config gtk+-2.0 --cflags --libs')
+env_evmisc.ParseConfig('pkg-config atk --cflags --libs')
+env_evmisc.ParseConfig('pkg-config cairo --cflags --libs')
+env_evmisc.ParseConfig('pkg-config pango --cflags --libs')
+
+env_evmisc.StaticLibrary(['evmisc.lib'], libevmisc_la_SOURCES)

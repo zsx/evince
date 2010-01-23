@@ -1,0 +1,29 @@
+# vim: ft=python expandtab
+
+Import('env')
+'''
+	-DDATADIR=\"$(pkgdatadir)\"		\
+	-DGNOMELOCALEDIR=\"$(datadir)/locale\"	\
+	-I$(top_srcdir)				\
+	-I$(top_builddir)			\
+	$(FRONTEND_CFLAGS)			\
+	$(NAUTILUS_CFLAGS)			\
+	$(DISABLE_DEPRECATED)			\
+	$(WARN_CFLAGS)
+'''
+env_evproperties = env.Clone(PDB='libevproperties.pdb')
+env_evproperties.Append(CPPDEFINES = [("GNOMELOCALEDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\locale\""'),
+                                      ("DATADIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\locale\""')])
+
+env_evproperties.Append(CPPPATH=['#', '#libdocument', '../msvc'])
+
+env_evproperties.ParseConfig('pkg-config glib-2.0 --cflags --libs')
+env_evproperties.ParseConfig('pkg-config gio-2.0 --cflags --libs')
+env_evproperties.ParseConfig('pkg-config gtk+-2.0 --cflags --libs')
+env_evproperties.ParseConfig('pkg-config atk --cflags --libs')
+env_evproperties.ParseConfig('pkg-config cairo --cflags --libs')
+env_evproperties.ParseConfig('pkg-config pango --cflags --libs')
+env_evproperties.ParseConfig('pkg-config poppler-glib --cflags --libs')
+env_evproperties.ParseConfig('pkg-config libxml-2.0 --cflags --libs')
+
+env_evproperties.StaticLibrary(['evproperties.lib'], "ev-properties-view.c")

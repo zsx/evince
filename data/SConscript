@@ -1,0 +1,21 @@
+# vim: ft=python expandtab
+
+Import('env')
+
+ui_DATA = Split("\
+	evince-ui.xml			\
+	evince-toolbar.xml		\
+	hand-open.png")
+env.Alias('install', env.Install('$PREFIX/share/evince', ui_DATA))
+SConscript(["icons/16x16/actions/SConscript",
+            "icons/16x16/apps/SConscript",
+            "icons/22x22/actions/SConscript",
+            "icons/22x22/apps/SConscript",
+            "icons/24x24/actions/SConscript",
+            "icons/24x24/apps/SConscript",
+            "icons/32x32/actions/SConscript",
+            "icons/48x48/actions/SConscript",
+            "icons/48x48/apps/SConscript",
+            "icons/scalable/apps/SConscript"],
+            exports = "env")
+

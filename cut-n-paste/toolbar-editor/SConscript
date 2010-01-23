@@ -1,0 +1,76 @@
+# vim: ft=python expandtab
+
+Import('env')
+'''
+	-I$(top_srcdir)				\
+	-I$(top_srcdir)/libtoolbareditor		\
+	-DGNOMELOCALEDIR=\"$(datadir)/locale\"  \
+	-DEVINCE_COMPILATION			\
+	$(BACKEND_CFLAGS)			\
+	$(POPPLER_CFLAGS)                       \
+	$(WARN_CXXFLAGS)			\
+	$(DISABLE_DEPRECATED)
+'''
+env_evtoolbareditor = env.Clone(PDB='libevtoolbareditor.pdb')
+env_evtoolbareditor.Append(CPPDEFINES = [("CURSOR_DIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\evince\""')])
+
+EGGSOURCES = Split("\
+	egg-editable-toolbar.c \
+	egg-toolbars-model.c \
+	egg-toolbar-editor.c")
+
+EGGHEADERS = Split("\
+	egg-editable-toolbar.h \
+	egg-toolbars-model.h \
+	egg-toolbar-editor.h")
+
+env_evtoolbareditor.Append(CPPPATH=['#', '#libtoolbareditor', '../msvc'])
+
+env_evtoolbareditor.ParseConfig('pkg-config glib-2.0 --cflags --libs')
+env_evtoolbareditor.ParseConfig('pkg-config gio-2.0 --cflags --libs')
+env_evtoolbareditor.ParseConfig('pkg-config gtk+-2.0 --cflags --libs')
+env_evtoolbareditor.ParseConfig('pkg-config atk --cflags --libs')
+env_evtoolbareditor.ParseConfig('pkg-config cairo --cflags --libs')
+env_evtoolbareditor.ParseConfig('pkg-config pango --cflags --libs')
+env_evtoolbareditor.ParseConfig('pkg-config poppler-glib --cflags --libs')
+env_evtoolbareditor.ParseConfig('pkg-config libxml-2.0 --cflags --libs')
+
+env_evtoolbareditor['GLIB_GENMARSHAL_ARGV'] = [('prefix', '_egg_marshal')]
+env_evtoolbareditor.MarshalGenerator(['eggmarshalers.c', 'eggmarshalers.h'], 'eggmarshalers.list')
+env_evtoolbareditor.Depends(['eggmarshalers.c', 'eggmarshalers.h'], 'SConscript')
+
+env_evtoolbareditor_mk_h = env_evtoolbareditor.Clone()
+env_evtoolbareditor_mk_h['GLIB_MKENUMS_ARGV'] = [
+    ('fhead', r'"#ifndef __EGGTYPEBUILTINS_H__\n"'),
+    ('fhead', r'"#define __EGGTYPEBUILTINS_H__ 1\n\n"'),
+    ('fhead', r'"#include <glib-object.h>\n\n"'),
+    ('fhead', r'"G_BEGIN_DECLS\n\n"'),
+    ('ftail', r'"G_END_DECLS\n\n"'),
+    ('ftail', r'"#endif /* __EGGTYPEBUILTINS_H__ */\n"'),
+    ('fprod', r'"\n/* --- @filename@ --- */"'),
+    ('eprod', r'"#define EGG_TYPE_@ENUMSHORT@ @enum_name@_get_type()\n"'),
+    ('eprod', r'"GType @enum_name@_get_type (void);\n"'),
+    ]
+env_evtoolbareditor_mk_h.MkenumsGenerator('eggtypebuiltins.h', EGGHEADERS)
+env_evtoolbareditor_mk_h.Depends('eggtypebuiltins.h', 'SConscript')
+
+env_evtoolbareditor_mk_c = env_evtoolbareditor.Clone()
+env_evtoolbareditor_mk_c['GLIB_MKENUMS_ARGV'] = [
+    ('fhead', r'"#include <config.h>\n\n"'),
+    ('fhead', r'"#include \"eggtypebuiltins.h\"\n\n"'),
+    ('fprod', r'"\n/* enumerations from \"@filename@\" */"'),
+    ('fprod', r'"\n#include \"@filename@\""'),
+    ('vhead', r'"static const G@Type@Value _@enum_name@_values[] = {"'),
+    ('vprod', r'"  { @VALUENAME@, \"@VALUENAME@\", \"@valuenick@\" },"'),
+    ('vtail', r'"  { 0, NULL, NULL }\n};\n\n"'),
+    ('vtail', r'"GType\n@enum_name@_get_type (void)\n{\n"'),
+    ('vtail', r'"  static GType type = 0;\n\n"'),
+    ('vtail', r'"  if (G_UNLIKELY (type == 0))\n"'),
+    ('vtail', r'"    type = g_@type@_register_static (\"@EnumName@\", _@enum_name@_values);\n\n"'),
+    ('vtail', r'"  return type;\n}\n\n"')
+]
+env_evtoolbareditor_mk_c.MkenumsGenerator('eggtypebuiltins.c', EGGHEADERS)
+env_evtoolbareditor_mk_c.Depends('eggtypebuiltins.c', 'SConscript')
+
+lib = env_evtoolbareditor.StaticLibrary(['evtoolbareditor.lib'], EGGSOURCES + ["eggmarshalers.c", "eggtypebuiltins.c"])
+env_evtoolbareditor.Depends(lib, ['eggtypebuiltins.h', 'eggmarshalers.h'])

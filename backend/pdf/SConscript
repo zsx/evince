@@ -1,0 +1,39 @@
+# vim: ft=python expandtab
+
+Import('env EV_BINARY_VERSION')
+'''
+	-I$(top_srcdir)				\
+	-I$(top_srcdir)/libdocument		\
+	-DGNOMELOCALEDIR=\"$(datadir)/locale\"  \
+	-DEVINCE_COMPILATION			\
+	$(BACKEND_CFLAGS)			\
+	$(POPPLER_CFLAGS)                       \
+	$(WARN_CXXFLAGS)			\
+	$(DISABLE_DEPRECATED)
+'''
+env_evpdfdocument = env.Clone(PDB='libevpdfdocument.pdb')
+env_evpdfdocument.Append(CPPDEFINES = [("GNOMELOCALEDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\locale\""'),
+                                       ('LIBXML_SAX1_ENABLED'), #xmlParseMemory
+                                       ("EVINCE_COMPILATION")])
+env_evpdfdocument.Append(CPPPATH=['#', '#libdocument', '../msvc'])
+
+env_evpdfdocument.ParseConfig('pkg-config glib-2.0 --cflags --libs')
+env_evpdfdocument.ParseConfig('pkg-config gio-2.0 --cflags --libs')
+env_evpdfdocument.ParseConfig('pkg-config gtk+-2.0 --cflags --libs')
+env_evpdfdocument.ParseConfig('pkg-config atk --cflags --libs')
+env_evpdfdocument.ParseConfig('pkg-config cairo --cflags --libs')
+env_evpdfdocument.ParseConfig('pkg-config pango --cflags --libs')
+env_evpdfdocument.ParseConfig('pkg-config poppler-glib --cflags --libs')
+env_evpdfdocument.ParseConfig('pkg-config poppler --cflags --libs')
+env_evpdfdocument.ParseConfig('pkg-config png12 --cflags --libs')
+env_evpdfdocument.ParseConfig('pkg-config freetype2 --cflags --libs')
+env_evpdfdocument.ParseConfig('pkg-config libxml-2.0 --cflags --libs')
+
+env_evpdfdocument.Append(LIBS=["gdi32", "user32", "Advapi32", "libjpeg"])
+
+env_evpdfdocument.Append(LINKFLAGS='/NODEFAULTLIB:libcmt.lib')
+dll = env_evpdfdocument.SharedLibrary(['libpdfdocument.dll'], ["ev-poppler.cc", '#libdocument/evdocument.lib', '#libview/evview.lib'])
+#dll = env_evpdfdocument.StaticLibrary(['libevpdfdocument.lib'], "ev-poppler.cc")
+env_evpdfdocument.AddPostAction(dll, 'mt.exe -nologo -manifest ${TARGET}.manifest -outputresource:$TARGET;2')
+env_evpdfdocument.Alias('install', env_evpdfdocument.Install('$PREFIX/lib/evince/' + EV_BINARY_VERSION + '/backends', 'libpdfdocument.dll'))
+env_evpdfdocument.Alias('install', env_evpdfdocument.InstallAs('$PREFIX/lib/evince/' + EV_BINARY_VERSION + '/backends/pdfdocument.evince-backend', 'pdfdocument.evince-backend.in'))

@@ -1,0 +1,11 @@
+# vim: ft=python expandtab
+
+Import('env')
+
+icons_DATA = Split("\
+	close.png			\
+	view-page-continuous.png	\
+	view-page-facing.png		\
+	resize-se.png			\
+	resize-sw.png")
+env.Alias('install', env.Install('$PREFIX/share/evince/icons/hicolor/48x48/actions', icons_DATA))

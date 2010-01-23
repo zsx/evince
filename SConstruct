@@ -1,6 +1,7 @@
 # vim: ft=python expandtab
 
 import os
+import re
 from site_init import GBuilder, Initialize
 
 opts = Variables()
@@ -39,4 +40,44 @@ env.Alias('install', env.Install('$PREFIX/lib/pkgconfig', 'evince-view-%s.pc' % 
 
 env.Alias('install', env.Install('$PREFIX/include/evince/' + EV_API_VERSION, ['evince-view.h', 'evince-document.h']))
 
-SConscript(['libdocument/SConscript'], exports="env EV_BINARY_VERSION EV_API_VERSION")
+def gen_def(target, source, env):
+    t = open(str(target[0]), 'w')
+    t.write("EXPORTS\n")
+    syms = set()
+    if 'DEF_ADDONS' in env:
+        for i in env['DEF_ADDONS']:
+            syms.add(i)
+    fun_regex = re.compile(r'\b(ev_\w+)\s*\(')
+    for i in source:
+        s = open(str(i), 'r')
+        for x in s.readlines():
+            mo = fun_regex.search(x)
+            if mo:
+                if 'BLACKLIST' not in env or mo.group(1) not in env['BLACKLIST']:
+                    syms.add(mo.group(1) + '\n')
+        s.close()
+    syms_list = list(syms)
+    syms_list.sort()
+    t.writelines(syms_list)
+    t.close()
+
+SConscript(['libdocument/SConscript',
+            'libview/SConscript',
+            'libmisc/SConscript',
+            'backend/pdf/SConscript',
+            'properties/SConscript',
+            'cut-n-paste/evinfobar/SConscript',
+            'cut-n-paste/smclient/SConscript',
+            'cut-n-paste/gimpcellrenderertoggle/SConscript',
+            'cut-n-paste/toolbar-editor/SConscript',
+            'cut-n-paste/totem-screensaver/SConscript',
+            'cut-n-paste/zoom-control/SConscript',
+            'shell/SConscript',
+            'data/SConscript'],
+           exports="env EV_BINARY_VERSION EV_API_VERSION gen_def")
+'''
+target = 'Bar' + env['MSVSSOLUTIONSUFFIX'],
+                 projects = ['bar' + env['MSVSPROJECTSUFFIX']],
+                 variant = 'Release'
+env.MSVSSolution(target = 'evince', projects = ['evince'], variant = 'Debug')
+'''
