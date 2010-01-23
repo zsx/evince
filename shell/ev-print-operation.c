@@ -26,7 +26,9 @@
 #endif
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 #include "ev-file-exporter.h"
 #include "ev-jobs.h"

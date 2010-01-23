@@ -27,6 +27,10 @@
 #include <math.h>
 #include <glib/gi18n.h>
 
+#ifndef M_PI
+#define M_PI 3.141592653589793239
+#endif
+
 typedef struct
 {
   int size;

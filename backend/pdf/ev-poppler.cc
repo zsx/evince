@@ -155,6 +155,7 @@ static gboolean    attachment_save_to_buffer (PopplerAttachment *attachment,
 					      gsize             *buffer_size,
 					      GError           **error);
 
+#ifdef HAVE_POPPLER_PAGE_RENDER
 EV_BACKEND_REGISTER_WITH_CODE (PdfDocument, pdf_document,
 			 {
 				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_SECURITY,
@@ -171,10 +172,8 @@ EV_BACKEND_REGISTER_WITH_CODE (PdfDocument, pdf_document,
 								 pdf_document_document_fonts_iface_init);
 				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_LAYERS,
 								 pdf_document_document_layers_iface_init);
-#ifdef HAVE_POPPLER_PAGE_RENDER
 				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_PRINT,
 								 pdf_document_document_print_iface_init);
-#endif
 				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_ANNOTATIONS,
 								 pdf_document_document_annotations_iface_init);
 				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_ATTACHMENTS,
@@ -188,6 +187,37 @@ EV_BACKEND_REGISTER_WITH_CODE (PdfDocument, pdf_document,
 				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_TRANSITION,
 								 pdf_document_page_transition_iface_init);
 			 });
+#else
+EV_BACKEND_REGISTER_WITH_CODE (PdfDocument, pdf_document,
+			 {
+				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_SECURITY,
+								 pdf_document_security_iface_init);
+				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_THUMBNAILS,
+								 pdf_document_document_thumbnails_iface_init);
+				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_LINKS,
+								 pdf_document_document_links_iface_init);
+				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_IMAGES,
+								 pdf_document_document_images_iface_init);
+				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_FORMS,
+								 pdf_document_document_forms_iface_init);
+				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_FONTS,
+								 pdf_document_document_fonts_iface_init);
+				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_LAYERS,
+								 pdf_document_document_layers_iface_init);
+				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_ANNOTATIONS,
+								 pdf_document_document_annotations_iface_init);
+				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_ATTACHMENTS,
+								 pdf_document_document_attachments_iface_init);
+				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_FIND,
+								 pdf_document_find_iface_init);
+				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_FILE_EXPORTER,
+								 pdf_document_file_exporter_iface_init);
+				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_SELECTION,
+								 pdf_selection_iface_init);
+				 EV_BACKEND_IMPLEMENT_INTERFACE (EV_TYPE_DOCUMENT_TRANSITION,
+								 pdf_document_page_transition_iface_init);
+			 });
+#endif
 
 static void
 pdf_document_search_free (PdfDocumentSearch   *search)

@@ -27,6 +27,10 @@
 #include "ev-stock-icons.h"
 #include "ev-view-marshal.h"
 
+#ifdef _MSC_VER
+#define strcasecmp stricmp
+#endif
+
 enum {
 	PROP_0,
 	PROP_ANNOTATION,
