@@ -33,7 +33,9 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 #include <glib/gstdio.h>
 #include <glib/gi18n.h>

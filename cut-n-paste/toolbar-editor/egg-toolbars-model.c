@@ -25,7 +25,9 @@
 #include "eggtypebuiltins.h"
 #include "eggmarshalers.h"
 
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <libxml/tree.h>
 #include <gdk/gdk.h>

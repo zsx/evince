@@ -41,7 +41,9 @@
 #include <errno.h>
 #include <glib/gstdio.h>
 #include <glib/gi18n-lib.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 static void ev_job_init                   (EvJob                 *job);
 static void ev_job_class_init             (EvJobClass            *class);
