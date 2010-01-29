@@ -252,7 +252,6 @@ ev_document_load (EvDocument  *document,
 		 */
 		priv->uri = g_strdup (uri);
 		priv->n_pages = _ev_document_get_n_pages (document);
-		priv->info = _ev_document_get_info (document);
 
 		for (i = 0; i < priv->n_pages; i++) {
 			EvPage     *page = ev_document_get_page (document, i);
@@ -298,24 +297,18 @@ ev_document_load (EvDocument  *document,
 
 			page_label = _ev_document_get_page_label (document, page);
 			if (page_label) {
-				if (priv->page_labels) {
-					priv->page_labels[i] = page_label;
-				} else {
-					gchar *numeric_label;
+				if (!priv->page_labels)
+					priv->page_labels = g_new0 (gchar *, priv->n_pages);
 
-					numeric_label = g_strdup_printf ("%d", i + 1);
-					if (strcmp (numeric_label, page_label) != 0) {
-						priv->page_labels = g_new0 (gchar *, priv->n_pages);
-						priv->page_labels[i] = page_label;
-					}
-					g_free (numeric_label);
-				}
+				priv->page_labels[i] = page_label;
 				priv->max_label = MAX (priv->max_label,
 						       g_utf8_strlen (page_label, 256));
 			}
 
 			g_object_unref (page);
 		}
+
+		priv->info = _ev_document_get_info (document);
 	}
 
 	return retval;

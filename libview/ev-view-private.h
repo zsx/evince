@@ -28,11 +28,12 @@
 #include "ev-view.h"
 #include "ev-document-model.h"
 #include "ev-pixbuf-cache.h"
+#include "ev-page-cache.h"
 #include "ev-jobs.h"
 #include "ev-image.h"
 #include "ev-form-field.h"
 #include "ev-selection.h"
-#include "ev-transition-animation.h"
+#include "ev-view-cursor.h"
 
 #define DRAG_HISTORY 10
 
@@ -100,23 +101,6 @@ typedef enum {
 	SCROLL_TO_FIND_LOCATION,
 } PendingScroll;
 
-typedef enum {
-	EV_VIEW_CURSOR_NORMAL,
-	EV_VIEW_CURSOR_IBEAM,
-	EV_VIEW_CURSOR_LINK,
-	EV_VIEW_CURSOR_WAIT,
-	EV_VIEW_CURSOR_HIDDEN,
-	EV_VIEW_CURSOR_DRAG,
-	EV_VIEW_CURSOR_AUTOSCROLL,
-} EvViewCursor;
-
-typedef enum {
-	EV_PRESENTATION_NORMAL,
-	EV_PRESENTATION_BLACK,
-	EV_PRESENTATION_WHITE,
-	EV_PRESENTATION_END
-} EvPresentationState;
-
 typedef struct _EvHeightToPageCache {
 	gint rotation;
 	gdouble *height_to_page;
@@ -135,8 +119,8 @@ struct _EvView {
 	gboolean highlight_find_results;
 
 	EvDocumentModel *model;
-	EvPageCache *page_cache;
 	EvPixbufCache *pixbuf_cache;
+	EvPageCache *page_cache;
 	EvHeightToPageCache *height_to_page_cache;
 	EvViewCursor cursor;
 	EvJobRender *current_job;
@@ -166,15 +150,8 @@ struct _EvView {
 	gboolean continuous;
 	gboolean dual_page;
 	gboolean fullscreen;
-	gboolean presentation;
 	EvSizingMode sizing_mode;
 	cairo_surface_t *loading_text;
-
-	/* Presentation */
-	EvPresentationState presentation_state;
-	EvSizingMode sizing_mode_saved;
-	double scale_saved;
-	guint  trans_timeout_id;
 
 	/* Common for button press handling */
 	int pressed_button;
@@ -199,12 +176,6 @@ struct _EvView {
 	/* Image DND */
 	ImageDNDInfo image_dnd_info;
 
-	/* Goto Popup */
-	GtkWidget *goto_window;
-	GtkWidget *goto_entry;
-
-	EvTransitionAnimation *animation;
-
 	/* Annotations */
 	GList             *window_children;
 	EvViewWindowChild *window_child_focus;
@@ -222,6 +193,7 @@ struct _EvViewClass {
 					   EvLinkAction   *action);
 	void    (*popup_menu)		  (EvView         *view,
 					   EvLink         *link);
+	void    (*selection_changed)      (EvView         *view);
 };
 
 void _get_page_size_for_scale_and_rotation (EvDocument *document,

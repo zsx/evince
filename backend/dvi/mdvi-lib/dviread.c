@@ -359,7 +359,7 @@ static int sort_down(const void *p1, const void *p2)
 }
 static int sort_random(const void *p1, const void *p2)
 {
-	return (random() % 1) ? -1 : 1;
+	return (rand() % 1) ? -1 : 1;
 }
 static int sort_dvi_up(const void *p1, const void *p2)
 {
@@ -684,7 +684,7 @@ DviContext *mdvi_init_context(DviParams *par, DviPageSpec *spec, const char *fil
 		perror(file);
 		return NULL;
 	}
-	p = fopen(filename, "r");
+	p = fopen(filename, "rb");
 	if(p == NULL) {
 		perror(file);
 		mdvi_free(filename);
@@ -1008,7 +1008,7 @@ int	mdvi_dopage(DviContext *dvi, int pageno)
 again:	
 	if(dvi->in == NULL) {
 		/* try reopening the file */
-		dvi->in = fopen(dvi->filename, "r");
+		dvi->in = fopen(dvi->filename, "rb");
 		if(dvi->in == NULL) {
 			mdvi_warning(_("%s: could not reopen file (%s)\n"),
 				     dvi->filename,

@@ -88,6 +88,7 @@
 #include "ev-utils.h"
 #include "ev-keyring.h"
 #include "ev-view.h"
+#include "ev-view-presentation.h"
 #include "ev-view-type-builtins.h"
 #include "ev-window.h"
 #include "ev-window-title.h"
@@ -136,6 +137,7 @@ struct _EvWindowPrivate {
 	GtkWidget *find_bar;
 	GtkWidget *scrolled_window;
 	GtkWidget *view;
+	GtkWidget *presentation_view;
 	GtkWidget *message_area;
 	GtkWidget *password_view;
 	GtkWidget *sidebar_thumbs;
@@ -166,9 +168,6 @@ struct _EvWindowPrivate {
 
 	/* Fullscreen mode */
 	GtkWidget *fullscreen_toolbar;
-
-	/* Presentation mode */
-	guint      presentation_timeout_id;
 
 	/* Popup view */
 	GtkWidget *view_popup;
@@ -218,6 +217,8 @@ struct _EvWindowPrivate {
 #define EV_WINDOW_GET_PRIVATE(object) \
 	(G_TYPE_INSTANCE_GET_PRIVATE ((object), EV_TYPE_WINDOW, EvWindowPrivate))
 
+#define EV_WINDOW_IS_PRESENTATION(w) (w->priv->presentation_view != NULL)
+
 #define PAGE_SELECTOR_ACTION	"PageSelector"
 #define ZOOM_CONTROL_ACTION	"ViewZoom"
 #define NAVIGATION_ACTION	"Navigation"
@@ -227,8 +228,6 @@ struct _EvWindowPrivate {
 #define GCONF_LOCKDOWN_SAVE         "/desktop/gnome/lockdown/disable_save_to_disk"
 #define GCONF_LOCKDOWN_PRINT        "/desktop/gnome/lockdown/disable_printing"
 #define GCONF_LOCKDOWN_PRINT_SETUP  "/desktop/gnome/lockdown/disable_print_setup"
-
-#define PRESENTATION_TIMEOUT 5
 
 #define SIDEBAR_DEFAULT_SIZE    132
 #define LINKS_SIDEBAR_ID "links"
@@ -433,6 +432,11 @@ ev_window_setup_action_sensitivity (EvWindow *ev_window)
 	ev_window_set_action_sensitive (ev_window, ZOOM_CONTROL_ACTION,  has_pages);
 	ev_window_set_action_sensitive (ev_window, NAVIGATION_ACTION,  FALSE);
 
+        /* Help menu */
+#ifdef G_OS_WIN32
+	ev_window_set_action_sensitive (ev_window, "HelpContents", FALSE);
+#endif
+
         ev_window_update_actions (ev_window);
 }
 
@@ -465,7 +469,7 @@ ev_window_update_actions (EvWindow *ev_window)
         ev_window_set_action_sensitive (ev_window, "F3",
                                         has_pages && can_find_in_page);
 
-	presentation_mode = ev_view_get_presentation (view);
+	presentation_mode = EV_WINDOW_IS_PRESENTATION (ev_window);
 	
 	ev_window_set_action_sensitive (ev_window, "ViewZoomIn",
 					has_pages &&
@@ -553,7 +557,7 @@ update_chrome_visibility (EvWindow *window)
 	gboolean menubar, toolbar, findbar, fullscreen_toolbar, sidebar;
 	gboolean fullscreen_mode, presentation, fullscreen;
 
-	presentation = ev_view_get_presentation (EV_VIEW (priv->view));
+	presentation = EV_WINDOW_IS_PRESENTATION (window);
 	fullscreen = ev_document_model_get_fullscreen (priv->model);
 	fullscreen_mode = fullscreen || presentation;
 
@@ -800,8 +804,7 @@ ev_window_add_history (EvWindow *window, gint page, EvLink *link)
 	if (link) {
 		action = g_object_ref (ev_link_get_action (link));
 		dest = ev_link_action_get_dest (action);
-		page = ev_link_dest_get_page (dest);
-		page_label = ev_view_page_label_from_dest (EV_VIEW (window->priv->view), dest);
+		page_label = ev_document_links_get_dest_page_label (EV_DOCUMENT_LINKS (window->priv->document), dest);
 	} else {
 		dest = ev_link_dest_new_page (page);
 		action = ev_link_action_new_dest (dest);
@@ -850,6 +853,14 @@ view_handle_link_cb (EvView *view, EvLink *link, EvWindow *window)
 	
 	ev_window_add_history (window, 0, link);
 	ev_window_add_history (window, current_page, NULL);
+}
+
+static void
+view_selection_changed_cb (EvView   *view,
+			   EvWindow *window)
+{
+	ev_window_set_action_sensitive (window, "EditCopy",
+					ev_view_get_has_selection (view));
 }
 
 static void
@@ -1245,7 +1256,10 @@ ev_window_setup_document (EvWindow *ev_window)
 	info = ev_document_get_info (document);
 	update_document_mode (ev_window, info->mode);
 
-	gtk_widget_grab_focus (ev_window->priv->view);
+	if (EV_WINDOW_IS_PRESENTATION (ev_window))
+		gtk_widget_grab_focus (ev_window->priv->presentation_view);
+	else
+		gtk_widget_grab_focus (ev_window->priv->view);
 
 	return FALSE;
 }
@@ -3475,7 +3489,6 @@ fullscreen_toolbar_remove_shadow (GtkWidget *toolbar)
 static void
 ev_window_run_fullscreen (EvWindow *window)
 {
-	EvView  *view = EV_VIEW (window->priv->view);
 	gboolean fullscreen_window = TRUE;
 
 	if (ev_document_model_get_fullscreen (window->priv->model))
@@ -3498,7 +3511,7 @@ ev_window_run_fullscreen (EvWindow *window)
 				       window->priv->fullscreen_toolbar, 1);
 	}
 
-	if (ev_view_get_presentation (view)) {
+	if (EV_WINDOW_IS_PRESENTATION (window)) {
 		ev_window_stop_presentation (window, FALSE);
 		fullscreen_window = FALSE;
 	}
@@ -3560,70 +3573,6 @@ ev_window_cmd_view_fullscreen (GtkAction *action, EvWindow *window)
 	}
 }
 
-static gboolean
-presentation_timeout_cb (EvWindow *window)
-{
-	EvView *view = EV_VIEW (window->priv->view);
-
-	if (!view || !ev_view_get_presentation (EV_VIEW (view)))
-		return FALSE;
-
-	ev_view_hide_cursor (EV_VIEW (window->priv->view));
-	window->priv->presentation_timeout_id = 0;
-
-	return FALSE;
-}
-
-static void
-presentation_set_timeout (EvWindow *window)
-{
-	if (window->priv->presentation_timeout_id > 0) {
-		g_source_remove (window->priv->presentation_timeout_id);
-	}
-
-	window->priv->presentation_timeout_id =
-		g_timeout_add_seconds (PRESENTATION_TIMEOUT,
-				       (GSourceFunc)presentation_timeout_cb, window);
-
-	ev_view_show_cursor (EV_VIEW (window->priv->view));
-}
-
-static void
-presentation_clear_timeout (EvWindow *window)
-{
-	if (window->priv->presentation_timeout_id > 0) {
-		g_source_remove (window->priv->presentation_timeout_id);
-	}
-	
-	window->priv->presentation_timeout_id = 0;
-
-	ev_view_show_cursor (EV_VIEW (window->priv->view));
-}
-
-static gboolean
-presentation_motion_notify_cb (GtkWidget *widget,
-			       GdkEventMotion *event,
-			       gpointer user_data)
-{
-	EvWindow *window = EV_WINDOW (user_data);
-
-	presentation_set_timeout (window);
-
-	return FALSE;
-}
-
-static gboolean
-presentation_leave_notify_cb (GtkWidget *widget,
-			      GdkEventCrossing *event,
-			      gpointer user_data)
-{
-	EvWindow *window = EV_WINDOW (user_data);
-
-	presentation_clear_timeout (window);
-
-	return FALSE;
-}
-
 static void
 ev_window_update_presentation_action (EvWindow *window)
 {
@@ -3633,50 +3582,54 @@ ev_window_update_presentation_action (EvWindow *window)
 	g_signal_handlers_block_by_func
 		(action, G_CALLBACK (ev_window_cmd_view_presentation), window);
 	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action),
-				      ev_view_get_presentation (EV_VIEW (window->priv->view)));
+				      EV_WINDOW_IS_PRESENTATION (window));
 	g_signal_handlers_unblock_by_func
 		(action, G_CALLBACK (ev_window_cmd_view_presentation), window);
 }
 
 static void
+ev_window_view_presentation_finished (EvWindow *window)
+{
+	ev_window_stop_presentation (window, TRUE);
+}
+
+static void
 ev_window_run_presentation (EvWindow *window)
 {
-	EvView  *view = EV_VIEW (window->priv->view);
 	gboolean fullscreen_window = TRUE;
+	guint    current_page;
+	guint    rotation;
 
-	if (ev_view_get_presentation (view))
+	if (EV_WINDOW_IS_PRESENTATION (window))
 		return;
 
 	if (ev_document_model_get_fullscreen (window->priv->model)) {
 		ev_window_stop_fullscreen (window, FALSE);
 		fullscreen_window = FALSE;
 	}
-	
-	g_object_set (G_OBJECT (window->priv->scrolled_window),
-		      "shadow-type", GTK_SHADOW_NONE,
-		      NULL);
 
-	ev_view_set_presentation (view, TRUE);
+	current_page = ev_document_model_get_page (window->priv->model);
+	rotation = ev_document_model_get_rotation (window->priv->model);
+	window->priv->presentation_view =
+		ev_view_presentation_new (window->priv->document, current_page, rotation);
+	g_signal_connect_swapped (window->priv->presentation_view, "finished",
+				  G_CALLBACK (ev_window_view_presentation_finished),
+				  window);
+
+	gtk_box_pack_start (GTK_BOX (window->priv->main_box),
+			    window->priv->presentation_view,
+			    FALSE, FALSE, 0);
+	gtk_widget_show (window->priv->presentation_view);
+
 	ev_window_update_presentation_action (window);
-
 	update_chrome_visibility (window);
-	
-	gtk_widget_grab_focus (window->priv->view);
+
+	gtk_widget_grab_focus (window->priv->presentation_view);
 	if (fullscreen_window)
 		gtk_window_fullscreen (GTK_WINDOW (window));
 
-	g_signal_connect (window->priv->view,
-			  "motion-notify-event",
-			  G_CALLBACK (presentation_motion_notify_cb),
-			  window);
-	g_signal_connect (window->priv->view,
-			  "leave-notify-event",
-			  G_CALLBACK (presentation_leave_notify_cb),
-			  window);
-	presentation_set_timeout (window);
-
 	ev_application_screensaver_disable (EV_APP);
-	
+
 	if (window->priv->metadata && !ev_window_is_empty (window))
 		ev_metadata_set_boolean (window->priv->metadata, "presentation", TRUE);
 }
@@ -3685,28 +3638,24 @@ static void
 ev_window_stop_presentation (EvWindow *window,
 			     gboolean  unfullscreen_window)
 {
-	EvView *view = EV_VIEW (window->priv->view);
-	
-	if (!ev_view_get_presentation (view))
+	guint current_page;
+
+	if (!EV_WINDOW_IS_PRESENTATION (window))
 		return;
 
-	g_object_set (G_OBJECT (window->priv->scrolled_window),
-		      "shadow-type", GTK_SHADOW_IN,
-		      NULL);
+	current_page = ev_view_presentation_get_current_page (EV_VIEW_PRESENTATION (window->priv->presentation_view));
+	ev_document_model_set_page (window->priv->model, current_page);
 
-	ev_view_set_presentation (EV_VIEW (window->priv->view), FALSE);
+	gtk_container_remove (GTK_CONTAINER (window->priv->main_box),
+			      window->priv->presentation_view);
+	window->priv->presentation_view = NULL;
+
 	ev_window_update_presentation_action (window);
 	update_chrome_visibility (window);
 	if (unfullscreen_window)
 		gtk_window_unfullscreen (GTK_WINDOW (window));
 
-	g_signal_handlers_disconnect_by_func (window->priv->view,
-					      (gpointer) presentation_motion_notify_cb,
-					      window);
-	g_signal_handlers_disconnect_by_func (window->priv->view,
-					      (gpointer) presentation_leave_notify_cb,
-					      window);
-	presentation_clear_timeout (window);
+	gtk_widget_grab_focus (window->priv->view);
 
 	ev_application_screensaver_enable (EV_APP);
 
@@ -3782,7 +3731,6 @@ ev_window_state_event (GtkWidget           *widget,
 		       GdkEventWindowState *event)
 {
 	EvWindow *window = EV_WINDOW (widget);
-	EvView   *view = EV_VIEW (window->priv->view);
 
 	if (GTK_WIDGET_CLASS (ev_window_parent_class)->window_state_event) {
 		GTK_WIDGET_CLASS (ev_window_parent_class)->window_state_event (widget, event);
@@ -3792,14 +3740,14 @@ ev_window_state_event (GtkWidget           *widget,
 		return FALSE;
 
 	if (event->new_window_state & GDK_WINDOW_STATE_FULLSCREEN) {
-		if (ev_document_model_get_fullscreen (window->priv->model) || ev_view_get_presentation (view))
+		if (ev_document_model_get_fullscreen (window->priv->model) || EV_WINDOW_IS_PRESENTATION (window))
 			return FALSE;
 		
 		ev_window_run_fullscreen (window);
 	} else {
 		if (ev_document_model_get_fullscreen (window->priv->model))
 			ev_window_stop_fullscreen (window, FALSE);
-		else if (ev_view_get_presentation (view))
+		else if (EV_WINDOW_IS_PRESENTATION (window))
 			ev_window_stop_presentation (window, FALSE);
 	}
 
@@ -4054,23 +4002,19 @@ ev_window_cmd_escape (GtkAction *action, EvWindow *window)
 		gtk_widget_grab_focus (window->priv->view);
 	} else {
 		gboolean fullscreen;
-		gboolean presentation;
 
 		fullscreen = ev_document_model_get_fullscreen (window->priv->model);
-		g_object_get (window->priv->view,
-			      "presentation", &presentation,
-			      NULL);
 
 		if (fullscreen) {
 			ev_window_stop_fullscreen (window, TRUE);
-		} else if (presentation) {
+		} else if (EV_WINDOW_IS_PRESENTATION (window)) {
 			ev_window_stop_presentation (window, TRUE);
 			gtk_widget_grab_focus (window->priv->view);
 		} else {
 			gtk_widget_grab_focus (window->priv->view);
 		}
 
-		if (fullscreen && presentation)
+		if (fullscreen && EV_WINDOW_IS_PRESENTATION (window))
 			g_warning ("Both fullscreen and presentation set somehow");
 	}
 }
@@ -4219,12 +4163,6 @@ ev_window_inverted_colors_changed_cb (EvDocumentModel *model,
 }
 
 static void
-ev_window_has_selection_changed_cb (EvView *view, GParamSpec *pspec, EvWindow *window)
-{
-        ev_window_update_actions (window);
-}
-
-static void
 ev_window_dual_mode_changed_cb (EvDocumentModel *model,
 				GParamSpec      *pspec,
 				EvWindow        *ev_window)
@@ -4352,7 +4290,7 @@ ev_window_view_toolbar_cb (GtkAction *action, EvWindow *ev_window)
 static void
 ev_window_view_sidebar_cb (GtkAction *action, EvWindow *ev_window)
 {
-	if (ev_view_get_presentation (EV_VIEW (ev_window->priv->view)))
+	if (EV_WINDOW_IS_PRESENTATION (ev_window))
 		return;
 	    
 	update_chrome_flag (ev_window, EV_CHROME_SIDEBAR,
@@ -4393,12 +4331,11 @@ ev_window_sidebar_visibility_changed_cb (EvSidebar  *ev_sidebar,
 					 GParamSpec *pspec,
 					 EvWindow   *ev_window)
 {
-	EvView *view = EV_VIEW (ev_window->priv->view);
 	GtkAction *action;
 
 	action = gtk_action_group_get_action (ev_window->priv->action_group, "ViewSidebar");
 
-	if (!ev_view_get_presentation (view)) {
+	if (!EV_WINDOW_IS_PRESENTATION (ev_window)) {
 		gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action),
 					      GTK_WIDGET_VISIBLE (ev_sidebar));
 
@@ -4525,9 +4462,6 @@ view_menu_popup_cb (EvView   *view,
 		    GObject  *object,
 		    EvWindow *ev_window)
 {
-	if (ev_view_get_presentation (EV_VIEW (ev_window->priv->view)))
-		return FALSE;
-
 	view_menu_link_popup (ev_window,
 			      EV_IS_LINK (object) ? EV_LINK (object) : NULL);
 	view_menu_image_popup (ev_window,
@@ -4983,11 +4917,6 @@ ev_window_dispose (GObject *object)
 		priv->history = NULL;
 	}
 
-	if (priv->presentation_timeout_id > 0) {
-		g_source_remove (priv->presentation_timeout_id);
-		priv->presentation_timeout_id = 0;
-	}
-
 	if (priv->print_queue) {
 		g_queue_free (priv->print_queue);
 		priv->print_queue = NULL;
@@ -5028,7 +4957,7 @@ ev_window_key_press_event (GtkWidget   *widget,
 		g_object_unref (priv->view);
 	}
 
-	if (!handled && !ev_view_get_presentation (EV_VIEW (priv->view))) {
+	if (!handled && !EV_WINDOW_IS_PRESENTATION (ev_window)) {
 		guint modifier = event->state & gtk_accelerator_get_default_mod_mask ();
 
 		if (priv->menubar_accel_keyval != 0 &&
@@ -5596,18 +5525,35 @@ launch_external_uri (EvWindow *window, EvLinkAction *action)
 
 	if (!g_strstr_len (uri, strlen (uri), "://") &&
 	    !g_str_has_prefix (uri, "mailto:")) {
-		gchar *http;
-		
-		/* Not a valid uri, assuming it's http */
-		http = g_strdup_printf ("http://%s", uri);
-		ret = g_app_info_launch_default_for_uri (http, context, &error);
-		g_free (http);
+		gchar *new_uri;
+
+		/* Not a valid uri, assume http if it starts with www */
+		if (g_str_has_prefix (uri, "www.")) {
+			new_uri = g_strdup_printf ("http://%s", uri);
+		} else {
+			GFile *file, *parent;
+
+			file = g_file_new_for_uri (window->priv->uri);
+			parent = g_file_get_parent (file);
+			g_object_unref (file);
+			if (parent) {
+				gchar *parent_uri = g_file_get_uri (parent);
+
+				new_uri = g_build_filename (parent_uri, uri, NULL);
+				g_free (parent_uri);
+				g_object_unref (parent);
+			} else {
+				new_uri = g_strdup_printf ("file:///%s", uri);
+			}
+		}
+		ret = g_app_info_launch_default_for_uri (new_uri, context, &error);
+		g_free (new_uri);
 	} else {
 		ret = g_app_info_launch_default_for_uri (uri, context, &error);
 	}
-	
+
   	if (ret == FALSE) {
-		ev_window_error_message (window, error, 
+		ev_window_error_message (window, error,
 					 "%s", _("Unable to open external link"));
 		g_error_free (error);
 	}
@@ -6124,6 +6070,7 @@ ev_window_init (EvWindow *ev_window)
 	GtkAccelGroup *accel_group;
 	GError *error = NULL;
 	GtkWidget *sidebar_widget;
+	GtkWidget *menuitem;
 	EggToolbarsModel *toolbars_model;
 	GObject *mpkeys;
 	gchar *ui_path;
@@ -6218,6 +6165,12 @@ ev_window_init (EvWindow *ev_window)
 	gtk_box_pack_start (GTK_BOX (ev_window->priv->main_box),
 			    ev_window->priv->menubar,
 			    FALSE, FALSE, 0);
+	menuitem = gtk_ui_manager_get_widget (ev_window->priv->ui_manager,
+					      "/MainMenu/EditMenu/EditRotateLeftMenu");
+	gtk_image_menu_item_set_always_show_image (GTK_IMAGE_MENU_ITEM (menuitem), TRUE);
+	menuitem = gtk_ui_manager_get_widget (ev_window->priv->ui_manager,
+					      "/MainMenu/EditMenu/EditRotateRightMenu");
+	gtk_image_menu_item_set_always_show_image (GTK_IMAGE_MENU_ITEM (menuitem), TRUE);
 
 	toolbars_model = get_toolbars_model ();
 	ev_window->priv->toolbar = GTK_WIDGET
@@ -6338,9 +6291,11 @@ ev_window_init (EvWindow *ev_window)
 	g_signal_connect_object (ev_window->priv->view, "handle-link",
 			         G_CALLBACK (view_handle_link_cb),
 			         ev_window, 0);
-	g_signal_connect_object (ev_window->priv->view,
-			         "popup",
+	g_signal_connect_object (ev_window->priv->view, "popup",
 				 G_CALLBACK (view_menu_popup_cb),
+				 ev_window, 0);
+	g_signal_connect_object (ev_window->priv->view, "selection-changed",
+				 G_CALLBACK (view_selection_changed_cb),
 				 ev_window, 0);
 	gtk_widget_show (ev_window->priv->view);
 	gtk_widget_show (ev_window->priv->password_view);
@@ -6387,15 +6342,9 @@ ev_window_init (EvWindow *ev_window)
 			  "notify::dual-page",
 			  G_CALLBACK (ev_window_dual_mode_changed_cb),
 			  ev_window);
-
-	/* Connect to view signals */
 	g_signal_connect (ev_window->priv->model,
 			  "notify::inverted-colors",
 			  G_CALLBACK (ev_window_inverted_colors_changed_cb),
-			  ev_window);
-	g_signal_connect (ev_window->priv->view,
-			  "notify::has-selection",
-			  G_CALLBACK (ev_window_has_selection_changed_cb),
 			  ev_window);
 
      	/* Connect sidebar signals */

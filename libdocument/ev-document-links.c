@@ -56,7 +56,7 @@ ev_document_links_get_links_model (EvDocumentLinks *document_links)
 
 GList *
 ev_document_links_get_links (EvDocumentLinks *document_links,
-			     gint             page)
+			     EvPage          *page)
 {
 	EvDocumentLinksIface *iface = EV_DOCUMENT_LINKS_GET_IFACE (document_links);
 	GList *retval;
@@ -78,4 +78,55 @@ ev_document_links_find_link_dest (EvDocumentLinks *document_links,
 	ev_document_doc_mutex_unlock ();
 
 	return retval;
+}
+
+/* Helper functions */
+gint
+ev_document_links_get_dest_page (EvDocumentLinks *document_links,
+				 EvLinkDest      *dest)
+{
+	gint page = -1;
+
+	switch (ev_link_dest_get_dest_type (dest)) {
+	case EV_LINK_DEST_TYPE_NAMED: {
+		EvLinkDest *dest2;
+
+		dest2 = ev_document_links_find_link_dest (document_links,
+							  ev_link_dest_get_named_dest (dest));
+		if (dest2) {
+			page = ev_link_dest_get_page (dest2);
+			g_object_unref (dest2);
+		}
+	}
+		break;
+	case EV_LINK_DEST_TYPE_PAGE_LABEL:
+		ev_document_find_page_by_label (EV_DOCUMENT (document_links),
+						ev_link_dest_get_page_label (dest),
+						&page);
+		break;
+	default:
+		page = ev_link_dest_get_page (dest);
+	}
+
+	return page;
+}
+
+gchar *
+ev_document_links_get_dest_page_label (EvDocumentLinks *document_links,
+				       EvLinkDest      *dest)
+{
+	gchar *label = NULL;
+
+	if (ev_link_dest_get_dest_type (dest) == EV_LINK_DEST_TYPE_PAGE_LABEL) {
+		label = g_strdup (ev_link_dest_get_page_label (dest));
+	} else {
+		gint page;
+
+		page = ev_document_links_get_dest_page (document_links, dest);
+		if (page != -1)
+			label = ev_document_get_page_label (EV_DOCUMENT (document_links),
+							    page);
+	}
+
+	return label;
 }

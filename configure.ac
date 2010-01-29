@@ -4,7 +4,7 @@
 
 m4_define([ev_major_version],[2])
 m4_define([ev_minor_version],[29])
-m4_define([ev_micro_version],[3])
+m4_define([ev_micro_version],[5])
 m4_define([ev_extra_version],[])
 m4_define([ev_version],[ev_major_version.ev_minor_version.ev_micro_version()ev_extra_version])
 
@@ -150,8 +150,21 @@ case "$with_platform" in
   hildon) AC_DEFINE([PLATFORM_HILDON],[1],[Define if building for the hildon platform])
           SHELL_PLATFORM_PKGS="hildon-1 hildon-fm-2 libosso"
           ;;
-  *) SHELL_PLATFORM_PKGS="gnome-icon-theme >= $GNOME_ICON_THEME_REQUIRED"
-     ;;
+  gnome)
+        # Evince has a rather soft run-time dependency on hicolor-icon-theme.
+        # If the hicolor theme is not available, Evince fails to display some
+        # icons. Because we cannot check for it at run-time, we instead
+        # would like to require the icon theme at compile-time. But, because
+        # the hicolor-icon-theme does not have a pkgconfig file, on gnome we
+        # require the gnome icon theme instead.
+        SHELL_PLATFORM_PKGS="gnome-icon-theme >= $GNOME_ICON_THEME_REQUIRED"
+        ;;
+  *)
+        # On all other platforms we issue a warning about the runtime
+        # dependency.
+        AC_MSG_WARN([Evince has a soft run-time dependency on hicolor-icon-theme. You are advised to have this theme installed when running Evince.]);
+        SHELL_PLATFORM_PKGS=""
+        ;;
 esac
 
 PKG_CHECK_MODULES([SHELL_CORE],[libxml-2.0 >= $LIBXML_REQUIRED gtk+-2.0 >= $GTK_REQUIRED gio-2.0 >= $GLIB_REQUIRED gthread-2.0 $SHELL_PLATFORM_PKGS])
@@ -337,8 +350,8 @@ LIBDOCUMENT_LIBS="$LIBDOCUMENT_LIBS"
 AC_SUBST(LIBDOCUMENT_CFLAGS)
 AC_SUBST(LIBDOCUMENT_LIBS)
 
-LIBVIEW_CFLAGS="$LIBVIEW_CFLAGS $DEBUG_FLAGS"
-LIBVIEW_LIBS="$LIBVIEW_LIBS"
+LIBVIEW_CFLAGS="$LIBVIEW_CFLAGS $GTKUNIXPRINT_CFLAGS $DEBUG_FLAGS"
+LIBVIEW_LIBS="$LIBVIEW_LIBS $GTKUNIXPRINT_LIBS"
 AC_SUBST(LIBVIEW_CFLAGS)
 AC_SUBST(LIBVIEW_LIBS)
 
@@ -346,8 +359,8 @@ BACKEND_CFLAGS="$BACKEND_CFLAGS -DGDK_MULTIHEAD_SAFE -DGTK_MULTIHEAD_SAFE $DEBUG
 AC_SUBST(BACKEND_CFLAGS)
 AC_SUBST(BACKEND_LIBS)
 
-SHELL_CFLAGS="$SHELL_CORE_CFLAGS $GTKUNIXPRINT_CFLAGS $DBUS_CFLAGS $KEYRING_CFLAGS $GCONF_CFLAGS -DGDK_MULTIHEAD_SAFE -DGTK_MULTIHEAD_SAFE $DEBUG_FLAGS"
-SHELL_LIBS="$SHELL_CORE_LIBS $GTKUNIXPRINT_CFLAGS $DBUS_LIBS $KEYRING_LIBS $GCONF_LIBS -lz"
+SHELL_CFLAGS="$SHELL_CORE_CFLAGS $DBUS_CFLAGS $KEYRING_CFLAGS $GCONF_CFLAGS -DGDK_MULTIHEAD_SAFE -DGTK_MULTIHEAD_SAFE $DEBUG_FLAGS"
+SHELL_LIBS="$SHELL_CORE_LIBS $DBUS_LIBS $KEYRING_LIBS $GCONF_LIBS -lz"
 AC_SUBST(SHELL_CFLAGS)
 AC_SUBST(SHELL_LIBS)
 
@@ -653,16 +666,8 @@ AC_ARG_ENABLE(comics,
 	[enable_comics=yes])
 	
 if test "x$enable_comics" = "xyes"; then
-	if test "x$os_win32" = "xyes"; then
-		# The comics backend is disabled on windows because:
-		# 1) it uses unix functions from sys/wait.h.
-		# 2) it uses external decompression tools not generally available on windows.
-		enable_comics=no
-		AC_MSG_WARN(The comics backend is not supported on windows.)
-	else
-		AC_DEFINE([ENABLE_COMICS], [1], [Enable support for comics.])
-	fi
-fi 
+	AC_DEFINE([ENABLE_COMICS], [1], [Enable support for comics.])
+fi
 AM_CONDITIONAL(ENABLE_COMICS, test x$enable_comics = xyes)
 
 dnl ================== End of comic book checks ============================================
@@ -700,7 +705,7 @@ if test "x$enable_tiff" = "xyes"; then
 	EVINCE_MIME_TYPES="${EVINCE_MIME_TYPES}image/tiff;"
 fi
 if test "x$enable_comics" = "xyes"; then
-	EVINCE_MIME_TYPES="${EVINCE_MIME_TYPES}application/x-cbr;application/x-cbz;application/x-cb7;"
+	EVINCE_MIME_TYPES="${EVINCE_MIME_TYPES}application/x-cbr;application/x-cbz;application/x-cb7;application/x-cbt;"
 fi
 if test "x$enable_pixbuf" = "xyes"; then
 	EVINCE_MIME_TYPES="${EVINCE_MIME_TYPES}image/*;"
@@ -757,19 +762,25 @@ data/icons/Makefile
 data/icons/16x16/Makefile
 data/icons/16x16/apps/Makefile
 data/icons/16x16/actions/Makefile
+data/icons/16x16/mimetypes/Makefile
 data/icons/22x22/Makefile
 data/icons/22x22/apps/Makefile
 data/icons/22x22/actions/Makefile
+data/icons/22x22/mimetypes/Makefile
 data/icons/24x24/Makefile
 data/icons/24x24/apps/Makefile
 data/icons/24x24/actions/Makefile
+data/icons/24x24/mimetypes/Makefile
 data/icons/32x32/Makefile
 data/icons/32x32/actions/Makefile
+data/icons/32x32/mimetypes/Makefile
 data/icons/48x48/Makefile
 data/icons/48x48/apps/Makefile
 data/icons/48x48/actions/Makefile
 data/icons/scalable/Makefile
 data/icons/scalable/apps/Makefile
+data/icons/scalable/actions/Makefile
+data/icons/scalable/mimetypes/Makefile
 help/Makefile
 help/reference/Makefile
 help/reference/libdocument/Makefile

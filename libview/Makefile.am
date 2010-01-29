@@ -2,10 +2,12 @@ lib_LTLIBRARIES = libevview.la
 
 NOINST_H_FILES =			\
 	ev-annotation-window.h		\
+	ev-page-cache.h			\
 	ev-pixbuf-cache.h		\
 	ev-timeline.h			\
 	ev-transition-animation.h	\
 	ev-view-accessible.h		\
+	ev-view-cursor.h		\
 	ev-view-marshal.h		\
 	ev-view-private.h
 
@@ -13,8 +15,10 @@ INST_H_FILES = 				\
 	ev-document-model.h		\
 	ev-jobs.h			\
 	ev-job-scheduler.h		\
+	ev-print-operation.h	        \
 	ev-stock-icons.h		\
 	ev-view.h			\
+	ev-view-presentation.h		\
 	ev-view-type-builtins.h
 
 headerdir = $(includedir)/evince/$(EV_API_VERSION)/libview
@@ -25,13 +29,17 @@ libevview_la_SOURCES = 			\
 	ev-document-model.c		\
 	ev-jobs.c			\
 	ev-job-scheduler.c		\
+	ev-page-cache.c			\
 	ev-pixbuf-cache.c		\
+	ev-print-operation.c	        \
 	ev-stock-icons.c		\
 	ev-timeline.c			\
 	ev-transition-animation.c	\
 	ev-view.c			\
 	ev-view-accessible.c		\
 	ev-view-marshal.c		\
+	ev-view-cursor.c		\
+	ev-view-presentation.c		\
 	ev-view-type-builtins.c		\
 	$(NOINST_H_FILES)		\
 	$(INST_H_FILES)

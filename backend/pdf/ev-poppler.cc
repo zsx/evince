@@ -1290,7 +1290,7 @@ pdf_document_links_get_links_model (EvDocumentLinks *document_links)
 
 static GList *
 pdf_document_links_get_links (EvDocumentLinks *document_links,
-			      gint             page)
+			      EvPage          *page)
 {
 	PdfDocument *pdf_document;
 	PopplerPage *poppler_page;
@@ -1300,8 +1300,7 @@ pdf_document_links_get_links (EvDocumentLinks *document_links,
 	double height;
 
 	pdf_document = PDF_DOCUMENT (document_links);
-	poppler_page = poppler_document_get_page (pdf_document->document,
-						  page);
+	poppler_page = POPPLER_PAGE (page->backend_page);
 	mapping_list = poppler_page_get_link_mapping (poppler_page);
 	poppler_page_get_size (poppler_page, NULL, &height);
 
@@ -1323,7 +1322,6 @@ pdf_document_links_get_links (EvDocumentLinks *document_links,
 	}
 
 	poppler_page_free_link_mapping (mapping_list);
-	g_object_unref (poppler_page);
 
 	return g_list_reverse (retval);
 }
@@ -1358,7 +1356,7 @@ pdf_document_document_links_iface_init (EvDocumentLinksIface *iface)
 
 static GList *
 pdf_document_images_get_image_mapping (EvDocumentImages *document_images,
-				       gint              page)
+				       EvPage           *page)
 {
 	GList *retval = NULL;
 	PdfDocument *pdf_document;
@@ -1367,7 +1365,7 @@ pdf_document_images_get_image_mapping (EvDocumentImages *document_images,
 	GList *list;
 
 	pdf_document = PDF_DOCUMENT (document_images);
-	poppler_page = poppler_document_get_page (pdf_document->document, page);
+	poppler_page = POPPLER_PAGE (page->backend_page);
 	mapping_list = poppler_page_get_image_mapping (poppler_page);
 
 	for (list = mapping_list; list; list = list->next) {
@@ -1378,7 +1376,7 @@ pdf_document_images_get_image_mapping (EvDocumentImages *document_images,
 
 		ev_image_mapping = g_new (EvMapping, 1);
 		
-		ev_image_mapping->data = ev_image_new (page, image_mapping->image_id);
+		ev_image_mapping->data = ev_image_new (page->index, image_mapping->image_id);
 		ev_image_mapping->area.x1 = image_mapping->area.x1;
 		ev_image_mapping->area.y1 = image_mapping->area.y1;
 		ev_image_mapping->area.x2 = image_mapping->area.x2;
@@ -1388,7 +1386,6 @@ pdf_document_images_get_image_mapping (EvDocumentImages *document_images,
 	}
 
 	poppler_page_free_image_mapping (mapping_list);
-	g_object_unref (poppler_page);
 
 	return g_list_reverse (retval);
 }
@@ -2042,15 +2039,15 @@ pdf_selection_get_selection_region (EvSelection     *selection,
 }
 
 static GdkRegion *
-pdf_selection_get_selection_map (EvSelection     *selection,
-				 EvRenderContext *rc)
+pdf_selection_get_selection_map (EvSelection *selection,
+				 EvPage      *page)
 {
 	PopplerPage *poppler_page;
 	PopplerRectangle points;
 	GList *region;
 	GdkRegion *retval;
 
-	poppler_page = POPPLER_PAGE (rc->page->backend_page);
+	poppler_page = POPPLER_PAGE (page->backend_page);
 
 	points.x1 = 0.0;
 	points.y1 = 0.0;

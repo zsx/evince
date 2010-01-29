@@ -19,6 +19,19 @@
 #define _MDVI_PRIVATE_H 1
 
 #define HAVE_PROTOTYPES 1
+
+#if STDC_HEADERS
+#  /* kpathsea's headers (wrongly!) redefine strchr() and strrchr() to
+#     non ANSI C functions if HAVE_STRCHR and HAVE_STRRCHR are not defined.
+#   */
+#  ifndef HAVE_STRCHR
+#     define HAVE_STRCHR
+#   endif
+#  ifndef HAVE_STRRCHR
+#    define HAVE_STRRCHR
+#  endif
+#endif
+
 #include <kpathsea/debug.h>
 #include <kpathsea/tex-file.h>
 #include <kpathsea/tex-glyph.h>
@@ -26,6 +39,7 @@
 #include <kpathsea/proginit.h>
 #include <kpathsea/progname.h>
 #include <kpathsea/tex-make.h>
+#include <kpathsea/lib.h>
 
 #define ISSP(p)		(*(p) == ' ' || *(p) == '\t')
 #define SKIPSP(p)	while(ISSP(p)) p++
