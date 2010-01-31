@@ -18,6 +18,7 @@ env_evshell.Append(CPPDEFINES = [("GNOMELOCALEDIR", r'"\"' + env['PREFIX'].repla
                                  ("LIBEXEDIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\bin\""'),
                                  ("DATADIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\evince\""'),
                                  ("GNOMEDATADIR", r'"\"' + env['PREFIX'].replace('\\', r'\\') + r'\\share\\evince\""'),
+                                 ("_WIN32_WINNT", "0x0500"),
                                  ("EVINCE_COMPILATION")])
 env_evshell.Append(CPPPATH=['#', '#libdocument', '#libview', '#properties', '#libmisc', '#cut-n-paste/totem-screensaver', '#cut-n-paste/evinfobar', '#cut-n-paste/zoom-control', '#cut-n-paste/toolbar-editor', '#cut-n-paste/gimpcellrenderertoggle', '#cut-n-paste/smclient', '../msvc'])
 
@@ -33,7 +34,6 @@ evince_SOURCES=Split("\
 	ev-navigation-action.c		\
 	ev-navigation-action-widget.c	\
 	ev-password-view.c		\
-	ev-print-operation.c		\
 	ev-progress-message-area.c	\
 	ev-properties-dialog.c		\
 	ev-properties-fonts.c		\
@@ -64,7 +64,10 @@ env_evshell.ParseConfig('pkg-config pango --cflags --libs')
 env_evshell.ParseConfig('pkg-config poppler-glib --cflags --libs')
 env_evshell.ParseConfig('pkg-config libxml-2.0 --cflags --libs')
 
-evince = env_evshell.Program(['evince.exe'], evince_SOURCES + ['#properties/evproperties.lib', '#libdocument/evdocument.lib', '#libview/evview.lib', '#libmisc/evmisc.lib', '#cut-n-paste/evinfobar/evinfobar.lib', '#cut-n-paste/smclient/evsmclient.lib', '#cut-n-paste/toolbar-editor/evtoolbareditor.lib', '#cut-n-paste/totem-screensaver/evtotemscrsaver.lib','#cut-n-paste/gimpcellrenderertoggle/evgimpcellrenderertoggle.lib', '#cut-n-paste/zoom-control/evephyzoom.lib'])
+env_evshell.Append(CPPPATH="#data")
+#env_evshell.Append(LDFLAGS="-mwindow")
+
+evince = env_evshell.Program(['evince.exe'], evince_SOURCES + ['#properties/evproperties.lib', '#libdocument/evdocument.lib', '#libview/evview.lib', '#libmisc/evmisc.lib', '#cut-n-paste/evinfobar/evinfobar.lib', '#cut-n-paste/smclient/evsmclient.lib', '#cut-n-paste/toolbar-editor/evtoolbareditor.lib', '#cut-n-paste/totem-screensaver/evtotemscrsaver.lib','#cut-n-paste/gimpcellrenderertoggle/evgimpcellrenderertoggle.lib', '#cut-n-paste/zoom-control/evephyzoom.lib', env_evshell.RES('evince-icon.rc')])
 env_evshell.AddPostAction(evince, 'mt.exe -nologo -manifest ${TARGET}.manifest -outputresource:$TARGET;2')
 env_evshell.Alias('install', env_evshell.Install('$PREFIX/bin', 'evince.exe'))
 if env_evshell['DEBUG'] == 1:

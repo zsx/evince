@@ -3,6 +3,8 @@
 Import('env')
 
 icons_DATA = Split("\
+	object-rotate-left.png		\
+	object-rotate-right.png		\
 	view-page-continuous.png	\
 	view-page-facing.png")
 env.Alias('install', env.Install('$PREFIX/share/evince/icons/hicolor/32x32/actions', icons_DATA))

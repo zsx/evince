@@ -15,7 +15,7 @@ Initialize(env)
 env.Append(CPPDEFINES = "HAVE_CONFIG_H")
 EV_MAJOR_VERSION=2
 EV_MINOR_VERSION=29
-EV_MICRO_VERSION=3
+EV_MICRO_VERSION=5
 EV_VERSION_STRING="%d.%d.%d" % (EV_MAJOR_VERSION, EV_MINOR_VERSION, EV_MICRO_VERSION)
 EV_API_VERSION="2.29"
 EV_BINARY_VERSION="2"
@@ -35,6 +35,9 @@ env.DotIn('config.h', 'config.h.win32.in')
 env.DotIn('libdocument/ev-version.h', 'libdocument/ev-version.h.in')
 env.DotIn('evince-document-%s.pc' % EV_API_VERSION, 'evince-document.pc.in')
 env.DotIn('evince-view-%s.pc' % EV_API_VERSION, 'evince-view.pc.in')
+env.Depends(['config.h',
+             'libdocument/ev-version.h'
+             ], 'SConstruct')
 env.Alias('install', env.Install('$PREFIX/lib/pkgconfig', 'evince-document-%s.pc' % EV_API_VERSION))
 env.Alias('install', env.Install('$PREFIX/lib/pkgconfig', 'evince-view-%s.pc' % EV_API_VERSION))
 

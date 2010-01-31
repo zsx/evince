@@ -64,9 +64,6 @@ gboolean        ev_view_get_has_selection (EvView         *view);
 /* These are all orthoganal to each other, except 'presentation' trumps all
  * other behaviors
  */
-void     	ev_view_set_presentation  (EvView         *view,
-					   gboolean        presentation);
-gboolean 	ev_view_get_presentation  (EvView         *view);
 
 /* Page size */
 gboolean	ev_view_can_zoom_in       (EvView         *view);

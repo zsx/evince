@@ -7,5 +7,7 @@ icons_DATA = Split("\
 	view-page-facing.png		\
 	zoom.png                \
 	zoom-fit-page.png		\
-	zoom-fit-width.png")
+	zoom-fit-width.png              \
+	object-rotate-left.png		\
+	object-rotate-right.png")
 env.Alias('install', env.Install('$PREFIX/share/evince/icons/hicolor/16x16/actions', icons_DATA))

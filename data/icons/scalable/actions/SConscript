@@ -1,0 +1,8 @@
+# vim: ft=python expandtab
+
+Import('env')
+
+icons_DATA = Split("\
+	object-rotate-left.svg	\
+	object-rotate-right.svg")
+env.Alias('install', env.Install('$PREFIX/share/evince/icons/hicolor/scalable/actions', icons_DATA))

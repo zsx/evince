@@ -1,0 +1,6 @@
+# vim: ft=python expandtab
+
+Import('env')
+
+icons_DATA = "x-office-presentation.png"
+env.Alias('install', env.Install('$PREFIX/share/evince/icons/hicolor/32x32/mimetypes', icons_DATA))
