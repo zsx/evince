@@ -31,7 +31,7 @@ env_evpdfdocument.ParseConfig('pkg-config libxml-2.0 --cflags --libs')
 
 env_evpdfdocument.Append(LIBS=["gdi32", "user32", "Advapi32", "libjpeg"])
 
-env_evpdfdocument.Append(LINKFLAGS='/NODEFAULTLIB:libcmt.lib')
+#env_evpdfdocument.Append(LINKFLAGS='/NODEFAULTLIB:libcmt.lib')
 dll = env_evpdfdocument.SharedLibrary(['libpdfdocument.dll'], ["ev-poppler.cc", '#libdocument/evdocument.lib', '#libview/evview.lib'])
 #dll = env_evpdfdocument.StaticLibrary(['libevpdfdocument.lib'], "ev-poppler.cc")
 env_evpdfdocument.AddPostAction(dll, 'mt.exe -nologo -manifest ${TARGET}.manifest -outputresource:$TARGET;2')
