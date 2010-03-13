@@ -383,7 +383,6 @@ totem_scrsaver_init (TotemScrsaver *scr)
 #endif
 #endif
 }
-}
 
 void
 totem_scrsaver_disable (TotemScrsaver *scr)
