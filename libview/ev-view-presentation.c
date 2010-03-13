@@ -62,6 +62,8 @@ struct _EvViewPresentation
 	guint                  rotation;
 	EvPresentationState    state;
 	gdouble                scale;
+	gint                   monitor_width;
+	gint                   monitor_height;
 
 	/* Cursors */
 	EvViewCursor           cursor;
@@ -163,23 +165,21 @@ static gdouble
 ev_view_presentation_get_scale_for_page (EvViewPresentation *pview,
 					 guint               page)
 {
-	gdouble width, height;
+	if (!ev_document_is_page_size_uniform (pview->document) || pview->scale == 0) {
+		gdouble width, height;
 
-	ev_document_get_page_size (pview->document, page, &width, &height);
+		ev_document_get_page_size (pview->document, page, &width, &height);
+		if (pview->rotation == 90 || pview->rotation == 270) {
+			gdouble tmp;
 
-	if (pview->rotation == 90 || pview->rotation == 270)
-		return GTK_WIDGET (pview)->allocation.height / width;
-	else
-		return GTK_WIDGET (pview)->allocation.height / height;
-}
+			tmp = width;
+			width = height;
+			height = tmp;
+		}
+		pview->scale = MIN (pview->monitor_width / width, pview->monitor_height / height);
+	}
 
-static void
-ev_view_presentation_update_scale (EvViewPresentation *pview)
-{
-	if (ev_document_is_page_size_uniform (pview->document) && pview->scale != 0)
-		return;
-
-	pview->scale = ev_view_presentation_get_scale_for_page (pview, pview->current_page);
+	return pview->scale;
 }
 
 static void
@@ -189,17 +189,19 @@ ev_view_presentation_get_page_area (EvViewPresentation *pview,
 	GtkWidget *widget = GTK_WIDGET (pview);
 	gdouble    doc_width, doc_height;
 	gint       view_width, view_height;
+	gdouble    scale;
 
 	ev_document_get_page_size (pview->document,
 				   pview->current_page,
 				   &doc_width, &doc_height);
+	scale = ev_view_presentation_get_scale_for_page (pview, pview->current_page);
 
 	if (pview->rotation == 90 || pview->rotation == 270) {
-		view_width = (gint)((doc_height * pview->scale) + 0.5);
-		view_height = (gint)((doc_width * pview->scale) + 0.5);
+		view_width = (gint)((doc_height * scale) + 0.5);
+		view_height = (gint)((doc_width * scale) + 0.5);
 	} else {
-		view_width = (gint)((doc_width * pview->scale) + 0.5);
-		view_height = (gint)((doc_height * pview->scale) + 0.5);
+		view_width = (gint)((doc_width * scale) + 0.5);
+		view_height = (gint)((doc_height * scale) + 0.5);
 	}
 
 	area->x = (MAX (0, widget->allocation.width - view_width)) / 2;
@@ -344,11 +346,8 @@ ev_view_presentation_schedule_new_job (EvViewPresentation *pview,
 	if (page < 0 || page >= ev_document_get_n_pages (pview->document))
 		return NULL;
 
-	if (ev_document_is_page_size_uniform (pview->document))
-		scale = pview->scale;
-	else
-		scale = ev_view_presentation_get_scale_for_page (pview, page);
-	job = ev_job_render_new (pview->document, page, pview->rotation, pview->scale, 0, 0);
+	scale = ev_view_presentation_get_scale_for_page (pview, page);
+	job = ev_job_render_new (pview->document, page, pview->rotation, scale, 0, 0);
 	g_signal_connect (job, "finished",
 			  G_CALLBACK (job_finished_cb),
 			  pview);
@@ -458,7 +457,7 @@ ev_view_presentation_update_current_page (EvViewPresentation *pview,
 	}
 
 	pview->current_page = page;
-	ev_view_presentation_update_scale (pview);
+
 	if (pview->page_cache)
 		ev_page_cache_set_page_range (pview->page_cache, page, page);
 
@@ -748,14 +747,16 @@ ev_view_presentation_get_link_at_location (EvViewPresentation *pview,
 	EvLink      *link;
 	gdouble      width, height;
 	gdouble      new_x, new_y;
+	gdouble      scale;
 
 	if (!pview->page_cache)
 		return NULL;
 
 	ev_document_get_page_size (pview->document, pview->current_page, &width, &height);
 	ev_view_presentation_get_page_area (pview, &page_area);
-	x = (x - page_area.x) / pview->scale;
-	y = (y - page_area.y) / pview->scale;
+	scale = ev_view_presentation_get_scale_for_page (pview, pview->current_page);
+	x = (x - page_area.x) / scale;
+	y = (y - page_area.y) / scale;
 	switch (pview->rotation) {
 	case 0:
 	case 360:
@@ -953,19 +954,9 @@ static void
 ev_view_presentation_size_allocate (GtkWidget     *widget,
 				    GtkAllocation *allocation)
 {
-	EvViewPresentation *pview = EV_VIEW_PRESENTATION (widget);
-	GdkScreen          *screen = gtk_widget_get_screen (widget);
-
-	allocation->x = 0;
-	allocation->y = 0;
-	allocation->width = gdk_screen_get_width (screen);
-	allocation->height = gdk_screen_get_height (screen);
-
 	GTK_WIDGET_CLASS (ev_view_presentation_parent_class)->size_allocate (widget, allocation);
 
-	ev_view_presentation_update_scale (pview);
-
-	gtk_widget_queue_draw (widget);
+	widget->allocation = *allocation;
 }
 
 static void
@@ -1200,6 +1191,25 @@ ev_view_presentation_motion_notify_event (GtkWidget      *widget,
 	return FALSE;
 }
 
+static gboolean
+init_presentation (GtkWidget *widget)
+{
+	EvViewPresentation *pview = EV_VIEW_PRESENTATION (widget);
+	GdkScreen          *screen = gtk_widget_get_screen (widget);
+	GdkRectangle        monitor;
+	gint                monitor_num;
+
+	monitor_num = gdk_screen_get_monitor_at_window (screen, widget->window);
+	gdk_screen_get_monitor_geometry (screen, monitor_num, &monitor);
+	pview->monitor_width = monitor.width;
+	pview->monitor_height = monitor.height;
+
+	ev_view_presentation_update_current_page (pview, pview->current_page);
+	ev_view_presentation_hide_cursor_timeout_start (pview);
+
+	return FALSE;
+}
+
 static void
 ev_view_presentation_realize (GtkWidget *widget)
 {
@@ -1223,7 +1233,7 @@ ev_view_presentation_realize (GtkWidget *widget)
 		GDK_KEY_PRESS_MASK |
 		GDK_POINTER_MOTION_MASK |
 		GDK_POINTER_MOTION_HINT_MASK |
-		                GDK_ENTER_NOTIFY_MASK |
+		GDK_ENTER_NOTIFY_MASK |
 		GDK_LEAVE_NOTIFY_MASK;
 
 	widget->window = gdk_window_new (gtk_widget_get_parent_window (widget),
@@ -1236,7 +1246,7 @@ ev_view_presentation_realize (GtkWidget *widget)
 
 	gdk_window_set_background (widget->window, &widget->style->black);
 
-	gtk_widget_queue_resize (widget);
+	g_idle_add ((GSourceFunc)init_presentation, widget);
 }
 
 static void
@@ -1328,7 +1338,6 @@ ev_view_presentation_constructor (GType                  type,
 {
 	GObject            *object;
 	EvViewPresentation *pview;
-	GtkAllocation       a;
 
 	object = G_OBJECT_CLASS (ev_view_presentation_parent_class)->constructor (type,
 										  n_construct_properties,
@@ -1339,11 +1348,6 @@ ev_view_presentation_constructor (GType                  type,
 		pview->page_cache = ev_page_cache_new (pview->document);
 		ev_page_cache_set_flags (pview->page_cache, EV_PAGE_DATA_INCLUDE_LINKS);
 	}
-
-	/* Call allocate asap to update page scale */
-	ev_view_presentation_size_allocate (GTK_WIDGET (pview), &a);
-	ev_view_presentation_update_current_page (pview, pview->current_page);
-	ev_view_presentation_hide_cursor_timeout_start (pview);
 
 	return object;
 }

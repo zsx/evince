@@ -64,6 +64,7 @@
 #include "ev-document-thumbnails.h"
 #include "ev-document-annotations.h"
 #include "ev-document-type-builtins.h"
+#include "ev-document-misc.h"
 #include "ev-file-exporter.h"
 #include "ev-file-helpers.h"
 #include "ev-file-monitor.h"
@@ -98,10 +99,6 @@
 #ifdef ENABLE_DBUS
 #include "ev-media-player-keys.h"
 #endif /* ENABLE_DBUS */
-
-#ifdef ENABLE_PDF
-#include <poppler.h>
-#endif
 
 typedef enum {
 	PAGE_MODE_DOCUMENT,
@@ -327,6 +324,15 @@ static guint ev_window_n_copies = 0;
 
 G_DEFINE_TYPE (EvWindow, ev_window, GTK_TYPE_WINDOW)
 
+static gdouble
+get_screen_dpi (EvWindow *window)
+{
+	GdkScreen *screen;
+
+	screen = gtk_window_get_screen (GTK_WINDOW (window));
+	return ev_document_misc_get_screen_dpi (screen);
+}
+
 static void
 ev_window_set_action_sensitive (EvWindow   *ev_window,
 		    	        const char *name,
@@ -503,7 +509,7 @@ ev_window_update_actions (EvWindow *ev_window)
 						      ZOOM_CONTROL_ACTION);
 
 		real_zoom = ev_document_model_get_scale (ev_window->priv->model);
-		real_zoom *= 72.0 / get_screen_dpi (GTK_WINDOW (ev_window));
+		real_zoom *= 72.0 / get_screen_dpi (ev_window);
 		zoom = ephy_zoom_get_nearest_zoom_level (real_zoom);
 
 		ephy_zoom_action_set_zoom_level (EPHY_ZOOM_ACTION (action), zoom);
@@ -832,7 +838,7 @@ ev_window_add_history (EvWindow *window, gint page, EvLink *link)
 	}
 
 	if (find_task.chapter)
-		link_title = g_strdup_printf (_("Page %s - %s"), page_label, find_task.chapter);
+		link_title = g_strdup_printf (_("Page %s — %s"), page_label, find_task.chapter);
 	else
 		link_title = g_strdup_printf (_("Page %s"), page_label);
 	
@@ -988,7 +994,7 @@ setup_model_from_metadata (EvWindow *window)
 	/* Zoom */
 	if (ev_document_model_get_sizing_mode (window->priv->model) == EV_SIZING_FREE &&
 	    ev_metadata_get_double (window->priv->metadata, "zoom", &zoom)) {
-		zoom *= get_screen_dpi (GTK_WINDOW (window)) / 72.0;
+		zoom *= get_screen_dpi (window) / 72.0;
 		ev_document_model_set_scale (window->priv->model, zoom);
 	}
 
@@ -3238,6 +3244,15 @@ ev_window_cmd_file_close_window (GtkAction *action, EvWindow *ev_window)
 	gchar     *text, *markup;
 	gint       n_print_jobs;
 
+	if (EV_WINDOW_IS_PRESENTATION (ev_window)) {
+		gint current_page;
+
+		/* Save current page */
+		current_page = ev_view_presentation_get_current_page (
+			EV_VIEW_PRESENTATION (ev_window->priv->presentation_view));
+		ev_document_model_set_page (ev_window->priv->model, current_page);
+	}
+
 	n_print_jobs = ev_window->priv->print_queue ?
 		g_queue_get_length (ev_window->priv->print_queue) : 0;
 	
@@ -3618,15 +3633,17 @@ ev_window_run_presentation (EvWindow *window)
 
 	gtk_box_pack_start (GTK_BOX (window->priv->main_box),
 			    window->priv->presentation_view,
-			    FALSE, FALSE, 0);
-	gtk_widget_show (window->priv->presentation_view);
+			    TRUE, TRUE, 0);
 
+	gtk_widget_hide (window->priv->hpaned);
 	ev_window_update_presentation_action (window);
 	update_chrome_visibility (window);
 
 	gtk_widget_grab_focus (window->priv->presentation_view);
 	if (fullscreen_window)
 		gtk_window_fullscreen (GTK_WINDOW (window));
+
+	gtk_widget_show (window->priv->presentation_view);
 
 	ev_application_screensaver_disable (EV_APP);
 
@@ -3650,6 +3667,7 @@ ev_window_stop_presentation (EvWindow *window,
 			      window->priv->presentation_view);
 	window->priv->presentation_view = NULL;
 
+	gtk_widget_show (window->priv->hpaned);
 	ev_window_update_presentation_action (window);
 	update_chrome_visibility (window);
 	if (unfullscreen_window)
@@ -3717,7 +3735,7 @@ ev_window_screen_changed (GtkWidget *widget,
 		return;
 
 	ev_window_setup_gtk_settings (window);
-	dpi = get_screen_dpi (GTK_WINDOW (window));
+	dpi = get_screen_dpi (window);
 	ev_document_model_set_min_scale (priv->model, MIN_SCALE * dpi / 72.0);
 	ev_document_model_set_max_scale (priv->model, MAX_SCALE * dpi / 72.0);
 
@@ -4073,7 +4091,7 @@ ev_window_zoom_changed_cb (EvDocumentModel *model, GParamSpec *pspec, EvWindow *
 		gdouble zoom;
 
 		zoom = ev_document_model_get_scale (model);
-		zoom *= 72.0 / get_screen_dpi (GTK_WINDOW (ev_window));
+		zoom *= 72.0 / get_screen_dpi (ev_window);
 		ev_metadata_set_double (ev_window->priv->metadata, "zoom", zoom);
 	}
 }
@@ -4175,33 +4193,21 @@ ev_window_dual_mode_changed_cb (EvDocumentModel *model,
 }
 
 static char *
-build_comments_string (void)
+build_comments_string (EvDocument *document)
 {
-#ifdef ENABLE_PDF
-	PopplerBackend backend;
-	const char *backend_name;
-	const char *version;
+	gchar *comments = NULL;
+	EvDocumentBackendInfo info;
 
-	backend = poppler_get_backend ();
-	version = poppler_get_version ();
-	switch (backend) {
-		case POPPLER_BACKEND_CAIRO:
-			backend_name = "cairo";
-			break;
-		case POPPLER_BACKEND_SPLASH:
-			backend_name = "splash";
-			break;
-		default:
-			backend_name = "unknown";
-			break;
+	if (document && ev_document_get_backend_info (document, &info)) {
+		comments = g_strdup_printf (
+			_("Document Viewer\nUsing %s (%s)"),
+			info.name, info.version);
+	} else {
+		comments = g_strdup_printf (
+			_("Document Viewer"));
 	}
 
-	return g_strdup_printf (_("Document Viewer.\n"
-				  "Using poppler %s (%s)"),
-				version, backend_name);
-#else
-	return g_strdup_printf (_("Document Viewer"));
-#endif
+	return comments;
 }
 
 static void
@@ -4253,7 +4259,8 @@ ev_window_cmd_help_about (GtkAction *action, EvWindow *ev_window)
 
 	license_trans = g_strconcat (_(license[0]), "\n", _(license[1]), "\n",
 				     _(license[2]), "\n", NULL);
-	comments = build_comments_string ();
+
+	comments = build_comments_string (ev_window->priv->document);
 
 	gtk_show_about_dialog (
 		GTK_WINDOW (ev_window),
@@ -4459,16 +4466,34 @@ view_menu_annot_popup (EvWindow     *ev_window,
 
 static gboolean
 view_menu_popup_cb (EvView   *view,
-		    GObject  *object,
+		    GList    *items,
 		    EvWindow *ev_window)
 {
-	view_menu_link_popup (ev_window,
-			      EV_IS_LINK (object) ? EV_LINK (object) : NULL);
-	view_menu_image_popup (ev_window,
-			       EV_IS_IMAGE (object) ? EV_IMAGE (object) : NULL);
-	view_menu_annot_popup (ev_window,
-			       EV_IS_ANNOTATION (object) ? EV_ANNOTATION (object) : NULL);
-	
+	GList   *l;
+	gboolean has_link = FALSE;
+	gboolean has_image = FALSE;
+	gboolean has_annot = FALSE;
+
+	for (l = items; l; l = g_list_next (l)) {
+		if (EV_IS_LINK (l->data)) {
+			view_menu_link_popup (ev_window, EV_LINK (l->data));
+			has_link = TRUE;
+		} else if (EV_IS_IMAGE (l->data)) {
+			view_menu_image_popup (ev_window, EV_IMAGE (l->data));
+			has_image = TRUE;
+		} else if (EV_IS_ANNOTATION (l->data)) {
+			view_menu_annot_popup (ev_window, EV_ANNOTATION (l->data));
+			has_annot = TRUE;
+		}
+	}
+
+	if (!has_link)
+		view_menu_link_popup (ev_window, NULL);
+	if (!has_image)
+		view_menu_image_popup (ev_window, NULL);
+	if (!has_annot)
+		view_menu_annot_popup (ev_window, NULL);
+
 	gtk_menu_popup (GTK_MENU (ev_window->priv->view_popup),
 			NULL, NULL, NULL, NULL,
 			3, gtk_get_current_event_time ());
@@ -4684,7 +4709,7 @@ zoom_control_changed_cb (EphyZoomAction *action,
 
 	if (mode == EV_SIZING_FREE) {
 		ev_document_model_set_scale (ev_window->priv->model,
-					     zoom * get_screen_dpi (GTK_WINDOW (ev_window)) / 72.0);
+					     zoom * get_screen_dpi (ev_window) / 72.0);
 	}
 }
 
@@ -5009,19 +5034,19 @@ static const GtkActionEntry entries[] = {
 	{ "Help", NULL, N_("_Help") },
 
 	/* File menu */
-	{ "FileOpen", GTK_STOCK_OPEN, N_("_Open..."), "<control>O",
+	{ "FileOpen", GTK_STOCK_OPEN, N_("_Open…"), "<control>O",
 	  N_("Open an existing document"),
 	  G_CALLBACK (ev_window_cmd_file_open) },
 	{ "FileOpenCopy", NULL, N_("Op_en a Copy"), "<control>N",
 	  N_("Open a copy of the current document in a new window"),
 	  G_CALLBACK (ev_window_cmd_file_open_copy) },
-       	{ "FileSaveAs", GTK_STOCK_SAVE_AS, N_("_Save a Copy..."), "<control>S",
+       	{ "FileSaveAs", GTK_STOCK_SAVE_AS, N_("_Save a Copy…"), "<control>S",
 	  N_("Save a copy of the current document"),
 	  G_CALLBACK (ev_window_cmd_save_as) },
-	{ "FilePageSetup", GTK_STOCK_PAGE_SETUP, N_("Page Set_up..."), NULL,
-	  N_("Setup the page settings for printing"),
+	{ "FilePageSetup", GTK_STOCK_PAGE_SETUP, N_("Page Set_up…"), NULL,
+	  N_("Set up the page settings for printing"),
 	  G_CALLBACK (ev_window_cmd_file_print_setup) },
-	{ "FilePrint", GTK_STOCK_PRINT, N_("_Print..."), "<control>P",
+	{ "FilePrint", GTK_STOCK_PRINT, N_("_Print…"), "<control>P",
 	  N_("Print this document"),
 	  G_CALLBACK (ev_window_cmd_file_print) },
 	{ "FileProperties", GTK_STOCK_PROPERTIES, N_("P_roperties"), "<alt>Return", NULL,
@@ -5034,7 +5059,7 @@ static const GtkActionEntry entries[] = {
           G_CALLBACK (ev_window_cmd_edit_copy) },
  	{ "EditSelectAll", GTK_STOCK_SELECT_ALL, N_("Select _All"), "<control>A", NULL,
 	  G_CALLBACK (ev_window_cmd_edit_select_all) },
-        { "EditFind", GTK_STOCK_FIND, N_("_Find..."), "<control>F",
+        { "EditFind", GTK_STOCK_FIND, N_("_Find…"), "<control>F",
           N_("Find a word or phrase in the document"),
           G_CALLBACK (ev_window_cmd_edit_find) },
 	{ "EditFindNext", NULL, N_("Find Ne_xt"), "<control>G", NULL,
@@ -5189,7 +5214,7 @@ static const GtkActionEntry view_popup_entries [] = {
 	  NULL, G_CALLBACK (ev_view_popup_cmd_open_link_new_window) },
 	{ "CopyLinkAddress", NULL, N_("_Copy Link Address"), NULL,
 	  NULL, G_CALLBACK (ev_view_popup_cmd_copy_link_address) },
-	{ "SaveImageAs", NULL, N_("_Save Image As..."), NULL,
+	{ "SaveImageAs", NULL, N_("_Save Image As…"), NULL,
 	  NULL, G_CALLBACK (ev_view_popup_cmd_save_image_as) },
 	{ "CopyImage", NULL, N_("Copy _Image"), NULL,
 	  NULL, G_CALLBACK (ev_view_popup_cmd_copy_image) },
@@ -5198,7 +5223,7 @@ static const GtkActionEntry view_popup_entries [] = {
 static const GtkActionEntry attachment_popup_entries [] = {
 	{ "OpenAttachment", GTK_STOCK_OPEN, N_("_Open Attachment"), NULL,
 	  NULL, G_CALLBACK (ev_attachment_popup_cmd_open_attachment) },
-	{ "SaveAttachmentAs", GTK_STOCK_SAVE_AS, N_("_Save Attachment As..."), NULL,
+	{ "SaveAttachmentAs", GTK_STOCK_SAVE_AS, N_("_Save Attachment As…"), NULL,
 	  NULL, G_CALLBACK (ev_attachment_popup_cmd_save_attachment_as) },
 };
 
@@ -5277,7 +5302,7 @@ register_custom_actions (EvWindow *window, GtkActionGroup *group)
 
 	action = g_object_new (EV_TYPE_OPEN_RECENT_ACTION,
 			       "name", "FileOpenRecent",
-			       "label", _("_Open..."),
+			       "label", _("_Open…"),
 			       "tooltip", _("Open an existing document"),
 			       "stock_id", GTK_STOCK_OPEN,
 			       NULL);
@@ -6271,7 +6296,7 @@ ev_window_init (EvWindow *ev_window)
 
 	ev_window->priv->view = ev_view_new ();
 	ev_view_set_model (EV_VIEW (ev_window->priv->view), ev_window->priv->model);
-	dpi = get_screen_dpi (GTK_WINDOW (ev_window));
+	dpi = get_screen_dpi (ev_window);
 	ev_document_model_set_min_scale (ev_window->priv->model, MIN_SCALE * dpi / 72.0);
 	ev_document_model_set_max_scale (ev_window->priv->model, MAX_SCALE * dpi / 72.0);
 	ev_window->priv->password_view = ev_password_view_new (GTK_WINDOW (ev_window));

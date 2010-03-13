@@ -4,7 +4,7 @@
 
 m4_define([ev_major_version],[2])
 m4_define([ev_minor_version],[29])
-m4_define([ev_micro_version],[5])
+m4_define([ev_micro_version],[92])
 m4_define([ev_extra_version],[])
 m4_define([ev_version],[ev_major_version.ev_minor_version.ev_micro_version()ev_extra_version])
 
@@ -41,7 +41,7 @@ m4_define([ev_binary_version],[ev_document_lt_current])
 
 AC_PREREQ([2.57])
 AC_INIT([Evince],[ev_version],[http://bugzilla.gnome.org/enter_bug.cgi?product=evince],[evince])
-AM_INIT_AUTOMAKE([1.9 foreign dist-bzip2 no-dist-gzip])
+AM_INIT_AUTOMAKE([1.10 foreign dist-bzip2 no-dist-gzip])
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -66,13 +66,14 @@ AC_PROG_SED
 AC_PATH_PROG([GLIB_GENMARSHAL], [glib-genmarshal])
 AC_PATH_PROG([GLIB_MKENUMS],[glib-mkenums])
 
-GNOME_COMMON_INIT
 GNOME_DOC_INIT
 GNOME_MAINTAINER_MODE_DEFINES
 GNOME_COMPILE_WARNINGS
 GNOME_CXX_WARNINGS
 
-GTK_DOC_CHECK(1.0)
+dnl FIXME: remove this when required gtk+ >= 2.19.7
+DISABLE_DEPRECATED=
+AC_SUBST([DISABLE_DEPRECATED])
 
 IT_PROG_INTLTOOL([0.35.0])
 
@@ -158,6 +159,8 @@ case "$with_platform" in
         # the hicolor-icon-theme does not have a pkgconfig file, on gnome we
         # require the gnome icon theme instead.
         SHELL_PLATFORM_PKGS="gnome-icon-theme >= $GNOME_ICON_THEME_REQUIRED"
+        # The totem-screensaver and egg_smclient code use x11 directly.
+        SHELL_PLATFORM_PKGS="$SHELL_PLATFORM_PKGS x11"
         ;;
   *)
         # On all other platforms we issue a warning about the runtime
@@ -261,9 +264,6 @@ if test "$with_keyring" = "yes"; then
         AC_DEFINE([WITH_KEYRING],[1],[Define if KEYRING support is enabled])
 fi
 
-GLIB_GENMARSHAL=`$PKG_CONFIG --variable=glib_genmarshal glib-2.0`  
-AC_SUBST(GLIB_GENMARSHAL)
-
 # ****
 # DBUS
 # ****
@@ -351,16 +351,17 @@ AC_SUBST(LIBDOCUMENT_CFLAGS)
 AC_SUBST(LIBDOCUMENT_LIBS)
 
 LIBVIEW_CFLAGS="$LIBVIEW_CFLAGS $GTKUNIXPRINT_CFLAGS $DEBUG_FLAGS"
-LIBVIEW_LIBS="$LIBVIEW_LIBS $GTKUNIXPRINT_LIBS"
+LIBVIEW_LIBS="$LIBVIEW_LIBS $GTKUNIXPRINT_LIBS -lm"
 AC_SUBST(LIBVIEW_CFLAGS)
 AC_SUBST(LIBVIEW_LIBS)
 
 BACKEND_CFLAGS="$BACKEND_CFLAGS -DGDK_MULTIHEAD_SAFE -DGTK_MULTIHEAD_SAFE $DEBUG_FLAGS"
+BACKEND_LIBS="$BACKEND_LIBS -lm"
 AC_SUBST(BACKEND_CFLAGS)
 AC_SUBST(BACKEND_LIBS)
 
 SHELL_CFLAGS="$SHELL_CORE_CFLAGS $DBUS_CFLAGS $KEYRING_CFLAGS $GCONF_CFLAGS -DGDK_MULTIHEAD_SAFE -DGTK_MULTIHEAD_SAFE $DEBUG_FLAGS"
-SHELL_LIBS="$SHELL_CORE_LIBS $DBUS_LIBS $KEYRING_LIBS $GCONF_LIBS -lz"
+SHELL_LIBS="$SHELL_CORE_LIBS $DBUS_LIBS $KEYRING_LIBS $GCONF_LIBS -lz -lm"
 AC_SUBST(SHELL_CFLAGS)
 AC_SUBST(SHELL_LIBS)
 
@@ -490,10 +491,6 @@ if test "x$enable_pdf" = "xyes"; then
     PKG_CHECK_MODULES(POPPLER, poppler-glib >= $POPPLER_REQUIRED libxml-2.0 >= $LIBXML_REQUIRED,enable_pdf=yes,enable_pdf=no)
 
     if test "x$enable_pdf" = "xyes"; then
-	    AC_DEFINE([ENABLE_PDF], [1], [Enable pdf support.])
-	    SHELL_LIBS="$SHELL_LIBS $POPPLER_LIBS"
-	    SHELL_CFLAGS="$SHELL_CFLAGS $POPPLER_CFLAGS"
-
 	    evince_save_LIBS=$LIBS
 	    LIBS="$LIBS $POPPLER_LIBS"
 	    AC_CHECK_FUNCS(poppler_page_render)
@@ -717,12 +714,25 @@ AC_SUBST(EVINCE_MIME_TYPES)
 
 AC_CHECK_FUNC(localtime_r, AC_DEFINE(HAVE_LOCALTIME_R, 1, [Defines if localtime_r is available on your system]))
 
+# *****************
+# API documentation
+# *****************
+
+GTK_DOC_CHECK([1.13],[--flavour no-tmpl])
+
+AC_SUBST([GLIB_PREFIX],[$($PKG_CONFIG --variable=prefix glib-2.0)])
+AC_SUBST([GTK_PREFIX],[$($PKG_CONFIG --variable=prefix gtk+-2.0)])
+
+# ******************
 # Backends directory
+# ******************
 
 AC_SUBST([backenddir],"\$(libdir)/evince/ev_binary_version/backends")
 AC_SUBST([backend_binary_version],"ev_binary_version")
 
+# **********
 # Versioning
+# **********
 
 AC_SUBST([EV_MAJOR_VERSION],[ev_major_version])
 AC_SUBST([EV_MINOR_VERSION],[ev_minor_version])
@@ -736,6 +746,7 @@ AC_SUBST([EV_DOCUMENT_LT_CURRENT_MINUS_AGE],[ev_document_lt_current_minus_age])
 AC_SUBST([EV_VIEW_LT_VERSION_INFO],[ev_view_lt_version_info])
 AC_SUBST([EV_VIEW_LT_CURRENT_MINUS_AGE],[ev_view_lt_current_minus_age])
 
+# *****************************************************************************
 # *****************************************************************************
 
 AC_CONFIG_FILES([

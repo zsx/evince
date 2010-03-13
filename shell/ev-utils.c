@@ -307,21 +307,6 @@ get_num_monitors (GtkWindow *window)
 	return gdk_screen_get_n_monitors (screen);
 }
 
-gdouble
-get_screen_dpi (GtkWindow *window)
-{
-	GdkScreen *screen;
-	gdouble    xdpi, ydpi;
-
-	screen = gtk_window_get_screen (window);
-
-	xdpi = 25.4 * gdk_screen_get_width (screen) / gdk_screen_get_width_mm (screen);
-	ydpi = 25.4 * gdk_screen_get_height (screen) / gdk_screen_get_height_mm (screen);
-	
-	return (xdpi + ydpi) / 2.0;
-}
-
-
 void           
 file_chooser_dialog_add_writable_pixbuf_formats (GtkFileChooser *chooser)
 {
