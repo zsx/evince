@@ -1,4 +1,5 @@
 # vim: ft=python expandtab
+import os
 
 Import('env')
 '''
@@ -69,7 +70,17 @@ env_evtoolbareditor_mk_c['GLIB_MKENUMS_ARGV'] = [
     ('vtail', r'"    type = g_@type@_register_static (\"@EnumName@\", _@enum_name@_values);\n\n"'),
     ('vtail', r'"  return type;\n}\n\n"')
 ]
-env_evtoolbareditor_mk_c.MkenumsGenerator('eggtypebuiltins.c', EGGHEADERS)
+env_evtoolbareditor_mk_c.MkenumsGenerator('eggtypebuiltins.c.tmp', EGGHEADERS)
+def modify_enums(target, source, env):
+    ft = open(str(target[0]), 'w')
+    fs = open(str(source[0]), 'r')
+    for line in fs.readlines():
+        line = line.replace('\tool', r'\tool')
+        ft.write(line)
+    ft.close()
+    fs.close()
+    os.unlink(str(source[0]))
+env_evtoolbareditor_mk_c.Command('eggtypebuiltins.c', 'eggtypebuiltins.c.tmp', modify_enums)
 env_evtoolbareditor_mk_c.Depends('eggtypebuiltins.c', 'SConscript')
 
 lib = env_evtoolbareditor.StaticLibrary(['evtoolbareditor.lib'], EGGSOURCES + ["eggmarshalers.c", "eggtypebuiltins.c"])
