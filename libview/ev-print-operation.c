@@ -33,6 +33,8 @@
 #include "ev-jobs.h"
 #include "ev-job-scheduler.h"
 
+#define ELLIPSIS "\xE2\x80\xA6" /* "…" in UTF-8 */
+
 enum {
 	PROP_0,
 	PROP_DOCUMENT
@@ -340,11 +342,11 @@ ev_print_operation_update_status (EvPrintOperation *op,
 
 	if (page == -1) {
 		/* Initial state */
-		op->status = g_strdup (_("Preparing to print…"));
+		op->status = g_strdup (_("Preparing to print" ELLIPSIS));
 	} else if (page > n_pages) {
-		op->status = g_strdup (_("Finishing…"));
+		op->status = g_strdup (_("Finishing" ELLIPSIS));
 	} else {
-		op->status = g_strdup_printf (_("Printing page %d of %d…"),
+		op->status = g_strdup_printf (_("Printing page %d of %d" ELLIPSIS),
 					      page, n_pages);
 	}
 
@@ -1902,12 +1904,12 @@ ev_print_operation_print_create_custom_widget (EvPrintOperationPrint *print,
 	gtk_widget_set_tooltip_text (print->scale_combo,
 		_("Scale document pages to fit the selected printer page. Select from one of the following:\n"
 		  "\n"
-		  "• \"None\": No page scaling is performed.\n"
+		  "? \"None\": No page scaling is performed.\n"
 		  "\n"
-		  "• \"Shrink to Printable Area\": Document pages larger than the printable area"
+		  "? \"Shrink to Printable Area\": Document pages larger than the printable area"
 		  " are reduced to fit the printable area of the printer page.\n"
 		  "\n"
-		  "• \"Fit to Printable Area\": Document pages are enlarged or reduced as"
+		  "? \"Fit to Printable Area\": Document pages are enlarged or reduced as"
 		  " required to fit the printable area of the printer page.\n"));
 	gtk_table_attach (GTK_TABLE (table), print->scale_combo, 1, 2, 0, 1, GTK_FILL, 0, 0, 0);
 	gtk_widget_show (print->scale_combo);

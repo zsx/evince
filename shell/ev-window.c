@@ -6,7 +6,7 @@
  *  Copyright (C) 2004 Martin Kretzschmar
  *  Copyright (C) 2004 Red Hat, Inc.
  *  Copyright (C) 2000, 2001, 2002, 2003, 2004 Marco Pesenti Gritti
- *  Copyright © 2003, 2004, 2005, 2009 Christian Persch
+ *  Copyright ? 2003, 2004, 2005, 2009 Christian Persch
  *
  *  Author:
  *    Martin Kretzschmar <martink@gnome.org>
@@ -99,6 +99,10 @@
 #ifdef ENABLE_DBUS
 #include "ev-media-player-keys.h"
 #endif /* ENABLE_DBUS */
+
+#define LQUOTE "\xE2\x80\x9C" /* "“" in UTF-8 */
+#define RQUOTE "\xE2\x80\x9D" /* "”" in UTF-8 */
+#define ELLIPSIS "\xE2\x80\xA6" /* "…" in UTF-8 */
 
 typedef enum {
 	PAGE_MODE_DOCUMENT,
@@ -1618,7 +1622,7 @@ show_loading_progress (EvWindow *ev_window)
 	text = g_uri_unescape_string (ev_window->priv->uri, NULL);
 	display_name = g_markup_escape_text (text, -1);
 	g_free (text);
-	text = g_strdup_printf (_("Loading document from “%s”"),
+	text = g_strdup_printf (_("Loading document from " LQUOTE "%s" RQUOTE),
 				display_name);
 
 	area = ev_progress_message_area_new (GTK_STOCK_OPEN,
@@ -2482,7 +2486,7 @@ window_save_file_copy_ready_cb (GFile        *src,
 		
 		name = g_file_get_basename (dst);
 		ev_window_error_message (ev_window, error,
-					 _("The file could not be saved as “%s”."),
+					 _("The file could not be saved as " LQUOTE "%s”."),
 					 name);
 		g_free (name);
 	}
@@ -2582,7 +2586,7 @@ ev_window_save_job_cb (EvJob     *job,
 {
 	if (ev_job_is_failed (job)) {
 		ev_window_error_message (window, job->error,
-					 _("The file could not be saved as “%s”."),
+					 _("The file could not be saved as " LQUOTE "%s”."),
 					 EV_JOB_SAVE (job)->uri);
 	}
 
@@ -3061,7 +3065,7 @@ ev_window_print_operation_status_changed (EvPrintOperation *op,
 		gchar       *text;
 
 		job_name = ev_print_operation_get_job_name (op);
-		text = g_strdup_printf (_("Printing job “%s”"), job_name);
+		text = g_strdup_printf (_("Printing job " LQUOTE "%s" RQUOTE), job_name);
 
 		area = ev_progress_message_area_new (GTK_STOCK_PRINT,
 						     text,
@@ -3273,7 +3277,7 @@ ev_window_cmd_file_close_window (GtkAction *action, EvWindow *ev_window)
 		op = g_queue_peek_tail (ev_window->priv->print_queue);
 		job_name = ev_print_operation_get_job_name (op);
 
-		text = g_strdup_printf (_("Wait until print job “%s” finishes before closing?"),
+		text = g_strdup_printf (_("Wait until print job " LQUOTE "%s" RQUOTE " finishes before closing?"),
 					job_name);
 	} else {
 		text = g_strdup_printf (_("There are %d print jobs active. "
@@ -4267,7 +4271,7 @@ ev_window_cmd_help_about (GtkAction *action, EvWindow *ev_window)
 		"name", _("Evince"),
 		"version", VERSION,
 		"copyright",
-		_("© 1996–2009 The Evince authors"),
+		_("? 1996–2009 The Evince authors"),
 		"license", license_trans,
 		"website", "http://www.gnome.org/projects/evince",
 		"comments", comments,
@@ -5034,19 +5038,19 @@ static const GtkActionEntry entries[] = {
 	{ "Help", NULL, N_("_Help") },
 
 	/* File menu */
-	{ "FileOpen", GTK_STOCK_OPEN, N_("_Open…"), "<control>O",
+	{ "FileOpen", GTK_STOCK_OPEN, N_("_Open" ELLIPSIS), "<control>O",
 	  N_("Open an existing document"),
 	  G_CALLBACK (ev_window_cmd_file_open) },
 	{ "FileOpenCopy", NULL, N_("Op_en a Copy"), "<control>N",
 	  N_("Open a copy of the current document in a new window"),
 	  G_CALLBACK (ev_window_cmd_file_open_copy) },
-       	{ "FileSaveAs", GTK_STOCK_SAVE_AS, N_("_Save a Copy…"), "<control>S",
+       	{ "FileSaveAs", GTK_STOCK_SAVE_AS, N_("_Save a Copy" ELLIPSIS), "<control>S",
 	  N_("Save a copy of the current document"),
 	  G_CALLBACK (ev_window_cmd_save_as) },
-	{ "FilePageSetup", GTK_STOCK_PAGE_SETUP, N_("Page Set_up…"), NULL,
+	{ "FilePageSetup", GTK_STOCK_PAGE_SETUP, N_("Page Set_up" ELLIPSIS), NULL,
 	  N_("Set up the page settings for printing"),
 	  G_CALLBACK (ev_window_cmd_file_print_setup) },
-	{ "FilePrint", GTK_STOCK_PRINT, N_("_Print…"), "<control>P",
+	{ "FilePrint", GTK_STOCK_PRINT, N_("_Print" ELLIPSIS), "<control>P",
 	  N_("Print this document"),
 	  G_CALLBACK (ev_window_cmd_file_print) },
 	{ "FileProperties", GTK_STOCK_PROPERTIES, N_("P_roperties"), "<alt>Return", NULL,
@@ -5059,7 +5063,7 @@ static const GtkActionEntry entries[] = {
           G_CALLBACK (ev_window_cmd_edit_copy) },
  	{ "EditSelectAll", GTK_STOCK_SELECT_ALL, N_("Select _All"), "<control>A", NULL,
 	  G_CALLBACK (ev_window_cmd_edit_select_all) },
-        { "EditFind", GTK_STOCK_FIND, N_("_Find…"), "<control>F",
+        { "EditFind", GTK_STOCK_FIND, N_("_Find" ELLIPSIS), "<control>F",
           N_("Find a word or phrase in the document"),
           G_CALLBACK (ev_window_cmd_edit_find) },
 	{ "EditFindNext", NULL, N_("Find Ne_xt"), "<control>G", NULL,
@@ -5214,7 +5218,7 @@ static const GtkActionEntry view_popup_entries [] = {
 	  NULL, G_CALLBACK (ev_view_popup_cmd_open_link_new_window) },
 	{ "CopyLinkAddress", NULL, N_("_Copy Link Address"), NULL,
 	  NULL, G_CALLBACK (ev_view_popup_cmd_copy_link_address) },
-	{ "SaveImageAs", NULL, N_("_Save Image As…"), NULL,
+	{ "SaveImageAs", NULL, N_("_Save Image As" ELLIPSIS), NULL,
 	  NULL, G_CALLBACK (ev_view_popup_cmd_save_image_as) },
 	{ "CopyImage", NULL, N_("Copy _Image"), NULL,
 	  NULL, G_CALLBACK (ev_view_popup_cmd_copy_image) },
@@ -5223,7 +5227,7 @@ static const GtkActionEntry view_popup_entries [] = {
 static const GtkActionEntry attachment_popup_entries [] = {
 	{ "OpenAttachment", GTK_STOCK_OPEN, N_("_Open Attachment"), NULL,
 	  NULL, G_CALLBACK (ev_attachment_popup_cmd_open_attachment) },
-	{ "SaveAttachmentAs", GTK_STOCK_SAVE_AS, N_("_Save Attachment As…"), NULL,
+	{ "SaveAttachmentAs", GTK_STOCK_SAVE_AS, N_("_Save Attachment As" ELLIPSIS), NULL,
 	  NULL, G_CALLBACK (ev_attachment_popup_cmd_save_attachment_as) },
 };
 
@@ -5302,7 +5306,7 @@ register_custom_actions (EvWindow *window, GtkActionGroup *group)
 
 	action = g_object_new (EV_TYPE_OPEN_RECENT_ACTION,
 			       "name", "FileOpenRecent",
-			       "label", _("_Open…"),
+			       "label", _("_Open" ELLIPSIS),
 			       "tooltip", _("Open an existing document"),
 			       "stock_id", GTK_STOCK_OPEN,
 			       NULL);

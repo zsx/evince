@@ -24,6 +24,9 @@
 #include "ev-file-helpers.h"
 #include "ev-attachment.h"
 
+#define LQUOTE "\xE2\x80\x9C" /* "“" in UTF-8 */
+#define RQUOTE "\xE2\x80\x9D" /* "”" in UTF-8 */
+
 enum
 {
 	PROP_0,
@@ -301,7 +304,7 @@ ev_attachment_save (EvAttachment *attachment,
 		g_set_error (error,
 			     EV_ATTACHMENT_ERROR, 
 			     ioerror->code,
-			     _("Couldn't save attachment “%s”: %s"),
+			     _("Couldn't save attachment " LQUOTE "%s" RQUOTE ": %s"),
 			     uri, 
 			     ioerror->message);
 
@@ -322,7 +325,7 @@ ev_attachment_save (EvAttachment *attachment,
 		g_set_error (error,
 			     EV_ATTACHMENT_ERROR,
 			     ioerror->code,
-			     _("Couldn't save attachment “%s”: %s"),
+			     _("Couldn't save attachment " LQUOTE "%s" RQUOTE ": %s"),
 			     uri,
 			     ioerror->message);
 		
@@ -370,7 +373,7 @@ ev_attachment_launch_app (EvAttachment *attachment,
 		g_set_error (error,
 			     EV_ATTACHMENT_ERROR,
 			     (gint) result,
-			     _("Couldn't open attachment “%s”: %s"),
+			     _("Couldn't open attachment " LQUOTE "%s" RQUOTE ": %s"),
 			     attachment->priv->name,
 			     ioerror->message);
 
@@ -405,7 +408,7 @@ ev_attachment_open (EvAttachment *attachment,
 		g_set_error (error,
 			     EV_ATTACHMENT_ERROR,
 			     0,
-			     _("Couldn't open attachment “%s”"),
+			     _("Couldn't open attachment " LQUOTE "%s" RQUOTE),
 			     attachment->priv->name);
 		
 		return FALSE;
