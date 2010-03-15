@@ -30,8 +30,6 @@
 #include "ev-stock-icons.h"
 #include "ev-sidebar-layers.h"
 
-#define ELLIPSIS "\xE2\x80\xA6" /* "…" in UTF-8 */
-
 struct _EvSidebarLayersPrivate {
 	GtkTreeView  *tree_view;
 
@@ -124,7 +122,7 @@ ev_sidebar_layers_create_loading_model (void)
 						     G_TYPE_INT);
 
 	gtk_list_store_append (GTK_LIST_STORE (retval), &iter);
-	markup = g_strdup_printf ("<span size=\"larger\" style=\"italic\">%s</span>", _("Loading" ELLIPSIS));
+	markup = g_strdup_printf ("<span size=\"larger\" style=\"italic\">%s</span>", _("Loading…"));
 	gtk_list_store_set (GTK_LIST_STORE (retval), &iter,
 			    EV_DOCUMENT_LAYERS_COLUMN_TITLE, markup,
 			    EV_DOCUMENT_LAYERS_COLUMN_VISIBLE, FALSE,

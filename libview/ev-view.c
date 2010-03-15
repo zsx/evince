@@ -43,10 +43,6 @@
 #include "ev-view-private.h"
 #include "ev-view-type-builtins.h"
 
-#define LQUOTE "\xE2\x80\x9C" /* "“" in UTF-8 */
-#define RQUOTE "\xE2\x80\x9D" /* "”" in UTF-8 */
-#define ELLIPSIS "\xE2\x80\xA6" /* "…" in UTF-8 */
-
 #define EV_VIEW_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), EV_TYPE_VIEW, EvViewClass))
 #define EV_IS_VIEW_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), EV_TYPE_VIEW))
 #define EV_VIEW_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), EV_TYPE_VIEW, EvViewClass))
@@ -1769,10 +1765,10 @@ tip_from_link (EvView *view, EvLink *link)
 			break;
 	        case EV_LINK_ACTION_TYPE_GOTO_REMOTE:
 			if (title) {
-				msg = g_strdup_printf (_("Go to %s on file " LQUOTE "%s" RQUOTE), title,
+				msg = g_strdup_printf (_("Go to %s on file “%s”"), title,
 						       ev_link_action_get_filename (action));
 			} else {
-				msg = g_strdup_printf (_("Go to file " LQUOTE "%s" RQUOTE),
+				msg = g_strdup_printf (_("Go to file “%s”"),
 						       ev_link_action_get_filename (action));
 			}
 			break;
@@ -3924,7 +3920,7 @@ draw_loading_text (EvView       *view,
 	gint     width, height;
 
 	if (!view->loading_text) {
-		const gchar *loading_text = _("Loading" ELLIPSIS);
+		const gchar *loading_text = _("Loading…");
 		PangoLayout *layout;
 		PangoFontDescription *font_desc;
 		PangoRectangle logical_rect;

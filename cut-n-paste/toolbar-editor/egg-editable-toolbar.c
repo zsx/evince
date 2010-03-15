@@ -35,9 +35,6 @@ static GdkPixbuf * new_separator_pixbuf         (void);
 #define EGG_ITEM_NAME      "egg-item-name"
 #define STOCK_DRAG_MODE    "stock_drag-mode"
 
-#define LQUOTE "\xE2\x80\x9C" /* "“" in UTF-8 */
-#define RQUOTE "\xE2\x80\x9D" /* "”" in UTF-8 */
-
 static const GtkTargetEntry dest_drag_types[] = {
   {EGG_TOOLBAR_ITEM_TYPE, GTK_TARGET_SAME_APP, 0},
 };
@@ -934,7 +931,7 @@ toolbar_visibility_refresh (EggEditableToolbar *etoolbar)
        * produce duplicates, but don't worry about it. If your language
        * normally has a mnemonic at the start, please use the _. If not,
        * please remove. */
-      action_label = g_strdup_printf (_("Show " LQUOTE "_%s" RQUOTE), tmp);
+      action_label = g_strdup_printf (_("Show “_%s”"), tmp);
       g_free (tmp);
       
       sprintf(action_name, "ToolbarToggle%d", i);
