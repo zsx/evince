@@ -411,9 +411,6 @@ ev_window_setup_action_sensitivity (EvWindow *ev_window)
 	/* File menu */
 	ev_window_set_action_sensitive (ev_window, "FileOpenCopy", has_document);
 	ev_window_set_action_sensitive (ev_window, "FileSaveAs", has_document && ok_to_copy);
-#if !GTK_CHECK_VERSION (2, 17, 4)
-	ev_window_set_action_sensitive (ev_window, "FilePageSetup", has_pages && ok_to_print && ok_to_print_setup);
-#endif
 	ev_window_set_action_sensitive (ev_window, "FilePrint", has_pages && ok_to_print);
 	ev_window_set_action_sensitive (ev_window, "FileProperties", has_document && has_properties);
 
@@ -2883,43 +2880,6 @@ get_print_page_setup (GKeyFile *key_file)
 }
 
 static void
-ev_window_print_page_setup_done_cb (GtkPageSetup *page_setup,
-				    EvWindow     *window)
-{
-	/* Dialog was canceled */
-	if (!page_setup)
-		return;
-
-	ev_window_save_print_page_setup (window, page_setup);
-}
-
-static void
-ev_window_cmd_file_print_setup (GtkAction *action,
-				EvWindow  *ev_window)
-{
-	GKeyFile         *print_settings_file;
-	GtkPrintSettings *print_settings;
-	GtkPageSetup     *print_page_setup;
-
-	print_settings_file = get_print_settings_file ();
-
-	print_settings = get_print_settings (print_settings_file);
-	ev_window_load_print_settings_from_metadata (ev_window, print_settings);
-
-	print_page_setup = get_print_page_setup (print_settings_file);
-	ev_window_load_print_page_setup_from_metadata (ev_window, print_page_setup);
-
-	gtk_print_run_page_setup_dialog_async (GTK_WINDOW (ev_window),
-					       print_page_setup,
-					       print_settings,
-					       (GtkPageSetupDoneFunc)ev_window_print_page_setup_done_cb,
-					       ev_window);
-	g_object_unref (print_settings);
-	g_object_unref (print_page_setup);
-	g_key_file_free (print_settings_file);
-}
-
-static void
 ev_window_print_cancel (EvWindow *ev_window)
 {
 	EvPrintOperation *op;
@@ -3855,6 +3815,7 @@ ev_window_cmd_edit_toolbar (GtkAction *action, EvWindow *ev_window)
 {
 	GtkWidget          *dialog;
 	GtkWidget          *editor;
+	GtkWidget          *content_area;
 	EggEditableToolbar *toolbar;
 
 	dialog = gtk_dialog_new_with_buttons (_("Toolbar Editor"),
@@ -3863,9 +3824,10 @@ ev_window_cmd_edit_toolbar (GtkAction *action, EvWindow *ev_window)
 					      GTK_STOCK_CLOSE,
 					      GTK_RESPONSE_CLOSE,
 					      NULL);
+	content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
 	gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_CLOSE);
 	gtk_container_set_border_width (GTK_CONTAINER (GTK_DIALOG (dialog)), 5);
-	gtk_box_set_spacing (GTK_BOX (GTK_DIALOG (dialog)->vbox), 2);
+	gtk_box_set_spacing (GTK_BOX (content_area), 2);
 	gtk_dialog_set_has_separator (GTK_DIALOG (dialog), FALSE);
 	gtk_window_set_default_size (GTK_WINDOW (dialog), 500, 400);
 
@@ -3876,7 +3838,7 @@ ev_window_cmd_edit_toolbar (GtkAction *action, EvWindow *ev_window)
 	gtk_container_set_border_width (GTK_CONTAINER (editor), 5);
 	gtk_box_set_spacing (GTK_BOX (EGG_TOOLBAR_EDITOR (editor)), 5);
 
-	gtk_container_add (GTK_CONTAINER (GTK_DIALOG (dialog)->vbox), editor);
+	gtk_container_add (GTK_CONTAINER (content_area), editor);
 
 	egg_editable_toolbar_set_edit_mode (toolbar, TRUE);
 
@@ -4343,12 +4305,13 @@ ev_window_sidebar_visibility_changed_cb (EvSidebar  *ev_sidebar,
 	action = gtk_action_group_get_action (ev_window->priv->action_group, "ViewSidebar");
 
 	if (!EV_WINDOW_IS_PRESENTATION (ev_window)) {
-		gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action),
-					      GTK_WIDGET_VISIBLE (ev_sidebar));
+		gboolean visible = gtk_widget_get_visible (GTK_WIDGET (ev_sidebar));
+
+		gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action), visible);
 
 		if (ev_window->priv->metadata)
 			ev_metadata_set_boolean (ev_window->priv->metadata, "sidebar_visibility",
-						 GTK_WIDGET_VISIBLE (ev_sidebar));
+						 visible);
 	}
 }
 
@@ -4667,7 +4630,7 @@ find_bar_visibility_changed_cb (EggFindBar *find_bar,
 {
 	gboolean visible;
 
-	visible = GTK_WIDGET_VISIBLE (find_bar);
+	visible = gtk_widget_get_visible (GTK_WIDGET (find_bar));
 
 	if (ev_window->priv->document &&
 	    EV_IS_DOCUMENT_FIND (ev_window->priv->document)) {
@@ -4977,7 +4940,7 @@ ev_window_key_press_event (GtkWidget   *widget,
 	 */
 	if (priv->view) {
 		g_object_ref (priv->view);
-		if (GTK_WIDGET_IS_SENSITIVE (priv->view))
+		if (gtk_widget_is_sensitive (priv->view))
 			handled = gtk_widget_event (priv->view, (GdkEvent*) event);
 		g_object_unref (priv->view);
 	}
@@ -4988,7 +4951,7 @@ ev_window_key_press_event (GtkWidget   *widget,
 		if (priv->menubar_accel_keyval != 0 &&
 		    event->keyval == priv->menubar_accel_keyval &&
 		    modifier == priv->menubar_accel_modifier) {
-			if (!GTK_WIDGET_VISIBLE (priv->menubar)) {
+			if (!gtk_widget_get_visible (priv->menubar)) {
 				g_signal_connect (priv->menubar, "deactivate",
 						  G_CALLBACK (menubar_deactivate_cb),
 						  ev_window);
@@ -5043,9 +5006,6 @@ static const GtkActionEntry entries[] = {
        	{ "FileSaveAs", GTK_STOCK_SAVE_AS, N_("_Save a Copy…"), "<control>S",
 	  N_("Save a copy of the current document"),
 	  G_CALLBACK (ev_window_cmd_save_as) },
-	{ "FilePageSetup", GTK_STOCK_PAGE_SETUP, N_("Page Set_up…"), NULL,
-	  N_("Set up the page settings for printing"),
-	  G_CALLBACK (ev_window_cmd_file_print_setup) },
 	{ "FilePrint", GTK_STOCK_PRINT, N_("_Print…"), "<control>P",
 	  N_("Print this document"),
 	  G_CALLBACK (ev_window_cmd_file_print) },
@@ -5454,7 +5414,7 @@ window_configure_event_cb (EvWindow *window, GdkEventConfigure *event, gpointer 
 	if (!window->priv->metadata)
 		return FALSE;
 
-	state = gdk_window_get_state (GTK_WIDGET (window)->window);
+	state = gdk_window_get_state (gtk_widget_get_window (GTK_WIDGET (window)));
 
 	if (!(state & GDK_WINDOW_STATE_FULLSCREEN)) {
 		if (!ev_window_is_empty (window) && window->priv->document) {
@@ -6165,16 +6125,6 @@ ev_window_init (EvWindow *ev_window)
 		g_error_free (error);
 	}
 	g_free (ui_path);
-
-#if GTK_CHECK_VERSION (2, 17, 4)
-	{
-		GtkAction *action;
-
-		action = gtk_action_group_get_action (ev_window->priv->action_group,
-						      "FilePageSetup");
-		g_object_set (action, "visible", FALSE, "sensitive", FALSE, NULL);
-	}
-#endif
 
 	ev_window->priv->recent_manager = gtk_recent_manager_get_default ();
 	ev_window->priv->recent_action_group = NULL;

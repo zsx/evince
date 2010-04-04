@@ -2398,7 +2398,7 @@ ev_view_window_child_move_with_parent (EvView    *view,
 		ev_view_window_child_move (view, child, dest_x, dest_y);
 	}
 
-	if (child->visible && !GTK_WIDGET_VISIBLE (window))
+	if (child->visible && !gtk_widget_get_visible (window))
 		gtk_widget_show (window);
 }
 
@@ -3250,7 +3250,7 @@ ev_view_button_press_event (GtkWidget      *widget,
 	if (!view->document)
 		return FALSE;
 	
-	if (!GTK_WIDGET_HAS_FOCUS (widget)) {
+	if (!gtk_widget_has_focus (widget)) {
 		gtk_widget_grab_focus (widget);
 	}
 
@@ -3762,7 +3762,7 @@ ev_view_key_press_event (GtkWidget   *widget,
 	if (!view->document)
 		return FALSE;
 
-	if (!GTK_WIDGET_HAS_FOCUS (widget)) {
+	if (!gtk_widget_has_focus (widget)) {
 		/* Forward key events to current focused window child */
 		if (view->window_child_focus) {
 			GdkEventKey *new_event;
@@ -4381,7 +4381,7 @@ on_adjustment_value_changed (GtkAdjustment *adjustment,
 	gint x, y;
 	GList *children, *l;
 
-	if (! GTK_WIDGET_REALIZED (view))
+	if (!gtk_widget_get_realized (GTK_WIDGET (view)))
 		return;
 
 	if (view->hadjustment) {

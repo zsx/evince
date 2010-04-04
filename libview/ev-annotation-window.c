@@ -253,7 +253,7 @@ ev_annotation_window_set_resize_cursor (GtkWidget          *widget,
 	if (!widget->window)
 		return;
 
-	if (GTK_WIDGET_IS_SENSITIVE (widget)) {
+	if (gtk_widget_is_sensitive (widget)) {
 		GdkDisplay *display = gtk_widget_get_display (widget);
 		GdkCursor  *cursor;
 
@@ -631,7 +631,7 @@ ev_annotation_window_grab_focus (EvAnnotationWindow *window)
 {
 	g_return_if_fail (EV_IS_ANNOTATION_WINDOW (window));
 
-	if (!GTK_WIDGET_HAS_FOCUS (window->text_view)) {
+	if (!gtk_widget_has_focus (window->text_view)) {
 		gtk_widget_grab_focus (GTK_WIDGET (window));
 		send_focus_change (window->text_view, TRUE);
 	}
@@ -642,7 +642,7 @@ ev_annotation_window_ungrab_focus (EvAnnotationWindow *window)
 {
 	g_return_if_fail (EV_IS_ANNOTATION_WINDOW (window));
 
-	if (GTK_WIDGET_HAS_FOCUS (window->text_view)) {
+	if (gtk_widget_has_focus (window->text_view)) {
 		send_focus_change (window->text_view, FALSE);
 	}
 

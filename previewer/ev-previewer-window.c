@@ -36,6 +36,7 @@ struct _EvPreviewerWindow {
 	EvDocument       *document;
 
 	GtkActionGroup   *action_group;
+	GtkActionGroup   *accels_group;
 	GtkUIManager     *ui_manager;
 
 	GtkWidget        *swindow;
@@ -96,6 +97,13 @@ ev_previewer_window_error_dialog_run (EvPreviewerWindow *window,
 #endif
 
 static void
+ev_previewer_window_close (GtkAction         *action,
+			   EvPreviewerWindow *window)
+{
+	gtk_widget_destroy (GTK_WIDGET (window));
+}
+
+static void
 ev_previewer_window_previous_page (GtkAction         *action,
 				   EvPreviewerWindow *window)
 {
@@ -150,6 +158,31 @@ ev_previewer_window_action_page_activated (GtkAction         *action,
 {
 	ev_view_handle_link (window->view, link);
 	gtk_widget_grab_focus (GTK_WIDGET (window->view));
+}
+
+static void
+ev_previewer_window_focus_page_selector (GtkAction         *action,
+					 EvPreviewerWindow *window)
+{
+	GtkAction *page_action;
+
+	page_action = gtk_action_group_get_action (window->action_group,
+						   "PageSelector");
+	ev_page_action_grab_focus (EV_PAGE_ACTION (page_action));
+}
+
+static void
+ev_previewer_window_scroll_forward (GtkAction         *action,
+				    EvPreviewerWindow *window)
+{
+	ev_view_scroll (window->view, GTK_SCROLL_PAGE_FORWARD, FALSE);
+}
+
+static void
+ev_previewer_window_scroll_backward (GtkAction         *action,
+				     EvPreviewerWindow *window)
+{
+	ev_view_scroll (window->view, GTK_SCROLL_PAGE_BACKWARD, FALSE);
 }
 
 #if GTKUNIXPRINT_ENABLED
@@ -245,6 +278,9 @@ ev_previewer_window_print (GtkAction         *action,
 #endif
 
 static const GtkActionEntry action_entries[] = {
+	{ "FileCloseWindow", GTK_STOCK_CLOSE, NULL, "<control>W",
+	  NULL,
+	  G_CALLBACK (ev_previewer_window_close) },
 	{ "GoPreviousPage", GTK_STOCK_GO_UP, N_("_Previous Page"), "<control>Page_Up",
           N_("Go to the previous page"),
           G_CALLBACK (ev_previewer_window_previous_page) },
@@ -264,6 +300,44 @@ static const GtkActionEntry action_entries[] = {
 #endif
 };
 
+static const GtkActionEntry accel_entries[] = {
+	{ "Space", NULL, "", "space", NULL,
+	  G_CALLBACK (ev_previewer_window_scroll_forward) },
+	{ "ShiftSpace", NULL, "", "<shift>space", NULL,
+	  G_CALLBACK (ev_previewer_window_scroll_backward) },
+	{ "BackSpace", NULL, "", "BackSpace", NULL,
+	  G_CALLBACK (ev_previewer_window_scroll_backward) },
+	{ "ShiftBackSpace", NULL, "", "<shift>BackSpace", NULL,
+	  G_CALLBACK (ev_previewer_window_scroll_forward) },
+	{ "Return", NULL, "", "Return", NULL,
+	  G_CALLBACK (ev_previewer_window_scroll_forward) },
+	{ "ShiftReturn", NULL, "", "<shift>Return", NULL,
+	  G_CALLBACK (ev_previewer_window_scroll_backward) },
+	{ "p", GTK_STOCK_GO_UP, "", "p", NULL,
+	  G_CALLBACK (ev_previewer_window_previous_page) },
+	{ "n", GTK_STOCK_GO_DOWN, "", "n", NULL,
+	  G_CALLBACK (ev_previewer_window_next_page) },
+	{ "Plus", GTK_STOCK_ZOOM_IN, NULL, "plus", NULL,
+	  G_CALLBACK (ev_previewer_window_zoom_in) },
+	{ "CtrlEqual", GTK_STOCK_ZOOM_IN, NULL, "<control>equal", NULL,
+	  G_CALLBACK (ev_previewer_window_zoom_in) },
+	{ "Equal", GTK_STOCK_ZOOM_IN, NULL, "equal", NULL,
+	  G_CALLBACK (ev_previewer_window_zoom_in) },
+	{ "Minus", GTK_STOCK_ZOOM_OUT, NULL, "minus", NULL,
+	  G_CALLBACK (ev_previewer_window_zoom_out) },
+	{ "KpPlus", GTK_STOCK_ZOOM_IN, NULL, "KP_Add", NULL,
+	  G_CALLBACK (ev_previewer_window_zoom_in) },
+	{ "KpMinus", GTK_STOCK_ZOOM_OUT, NULL, "KP_Subtract", NULL,
+	  G_CALLBACK (ev_previewer_window_zoom_out) },
+	{ "CtrlKpPlus", GTK_STOCK_ZOOM_IN, NULL, "<control>KP_Add", NULL,
+	  G_CALLBACK (ev_previewer_window_zoom_in) },
+	{ "CtrlKpMinus", GTK_STOCK_ZOOM_OUT, NULL, "<control>KP_Subtract", NULL,
+	  G_CALLBACK (ev_previewer_window_zoom_out) },
+	{ "FocusPageSelector", NULL, "", "<control>l", NULL,
+	  G_CALLBACK (ev_previewer_window_focus_page_selector) }
+
+};
+
 static const GtkToggleActionEntry toggle_action_entries[] = {
 	{ "ViewBestFit", EV_STOCK_ZOOM_PAGE, N_("_Best Fit"), NULL,
 	  N_("Make the current document fill the window"),
@@ -272,6 +346,17 @@ static const GtkToggleActionEntry toggle_action_entries[] = {
 	  N_("Make the current document fill the window width"),
 	  G_CALLBACK (ev_previewer_window_zoom_page_width) }
 };
+
+static gboolean
+view_focus_changed (GtkWidget         *widget,
+		    GdkEventFocus     *event,
+		    EvPreviewerWindow *window)
+{
+	if (window->accels_group)
+		gtk_action_group_set_sensitive (window->accels_group, event->in);
+
+	return FALSE;
+}
 
 static void
 view_sizing_mode_changed (EvDocumentModel   *model,
@@ -316,6 +401,19 @@ ev_previewer_window_set_document (EvPreviewerWindow *window,
 			  window);
 	ev_view_set_loading (window->view, FALSE);
 	gtk_action_group_set_sensitive (window->action_group, TRUE);
+	gtk_action_group_set_sensitive (window->accels_group, TRUE);
+}
+
+static void
+ev_previewer_window_connect_action_accelerators (EvPreviewerWindow *window)
+{
+	GList *actions;
+
+	gtk_ui_manager_ensure_update (window->ui_manager);
+
+	actions = gtk_action_group_list_actions (window->action_group);
+	g_list_foreach (actions, (GFunc)gtk_action_connect_accelerator, NULL);
+	g_list_free (actions);
 }
 
 static void
@@ -336,6 +434,11 @@ ev_previewer_window_dispose (GObject *object)
 	if (window->action_group) {
 		g_object_unref (window->action_group);
 		window->action_group = NULL;
+	}
+
+	if (window->accels_group) {
+		g_object_unref (window->accels_group);
+		window->accels_group = NULL;
 	}
 
 	if (window->ui_manager) {
@@ -464,9 +567,17 @@ ev_previewer_window_constructor (GType                  type,
 	gtk_action_group_add_action (window->action_group, action);
 	g_object_unref (action);
 
+	window->accels_group = gtk_action_group_new ("PreviewerAccelerators");
+	gtk_action_group_add_actions (window->accels_group, accel_entries,
+				      G_N_ELEMENTS (accel_entries),
+				      window);
+	gtk_action_group_set_sensitive (window->accels_group, FALSE);
+
 	window->ui_manager = gtk_ui_manager_new ();
 	gtk_ui_manager_insert_action_group (window->ui_manager,
 					    window->action_group, 0);
+	gtk_ui_manager_insert_action_group (window->ui_manager,
+					    window->accels_group, 1);
 	gtk_window_add_accel_group (GTK_WINDOW (window),
 				    gtk_ui_manager_get_accel_group (window->ui_manager));
 	datadir = data_dir ();
@@ -477,6 +588,11 @@ ev_previewer_window_constructor (GType                  type,
 	}
 	g_free (ui_path);
 	g_free (datadir);
+
+	/* GTKUIManager connects actions accels only for menu items,
+	 * but not for tool items. See bug #612972.
+	 */
+	ev_previewer_window_connect_action_accelerators (window);
 
 	view_sizing_mode_changed (window->model, NULL, window);
 
@@ -492,6 +608,12 @@ ev_previewer_window_constructor (GType                  type,
 					GTK_POLICY_AUTOMATIC);
 
 	window->view = EV_VIEW (ev_view_new ());
+	g_signal_connect_object (window->view, "focus_in_event",
+				 G_CALLBACK (view_focus_changed),
+				 window, 0);
+	g_signal_connect_object (window->view, "focus_out_event",
+				 G_CALLBACK (view_focus_changed),
+				 window, 0);
 	ev_view_set_model (window->view, window->model);
 	ev_document_model_set_continuous (window->model, FALSE);
 	ev_view_set_loading (window->view, TRUE);

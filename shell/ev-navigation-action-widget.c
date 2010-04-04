@@ -98,7 +98,7 @@ ev_navigation_action_widget_set_menu(EvNavigationActionWidget *button, GtkWidget
       if (button->menu == GTK_MENU (menu))
 		return;
 	
-      if (button->menu && GTK_WIDGET_VISIBLE (button->menu))
+      if (button->menu && gtk_widget_get_visible (GTK_WIDGET (button->menu)))
 	        gtk_menu_shell_deactivate (GTK_MENU_SHELL (button->menu));
 
       if (button->menu) {
@@ -127,7 +127,9 @@ menu_position_func (GtkMenu           *menu,
 {
 	GtkWidget *widget = GTK_WIDGET (button);
 	GtkRequisition menu_req;
+	GtkAllocation  allocation;
 	GtkTextDirection direction;
+	GdkWindow *gdk_window;
 	GdkRectangle monitor;
 	gint monitor_num;
 	GdkScreen *screen;
@@ -136,26 +138,28 @@ menu_position_func (GtkMenu           *menu,
 	direction = gtk_widget_get_direction (widget);
 	screen = gtk_widget_get_screen (GTK_WIDGET (menu));
 
-	monitor_num = gdk_screen_get_monitor_at_window (screen, widget->window);
+	gdk_window = gtk_widget_get_window (widget);
+	monitor_num = gdk_screen_get_monitor_at_window (screen, gdk_window);
 	if (monitor_num < 0)
 		monitor_num = 0;
 	gdk_screen_get_monitor_geometry (screen, monitor_num, &monitor);
 
-	gdk_window_get_origin (widget->window, x, y);
-	*x += widget->allocation.x;
-	*y += widget->allocation.y;
+	gdk_window_get_origin (gdk_window, x, y);
+	gtk_widget_get_allocation (widget, &allocation);
+	*x += allocation.x;
+	*y += allocation.y;
 
 	if (direction == GTK_TEXT_DIR_LTR)
-		*x += MAX (widget->allocation.width - menu_req.width, 0);
-	else if (menu_req.width > widget->allocation.width)
-    		*x -= menu_req.width - widget->allocation.width;
+		*x += MAX (allocation.width - menu_req.width, 0);
+	else if (menu_req.width > allocation.width)
+    		*x -= menu_req.width - allocation.width;
 
-	if ((*y + widget->allocation.height + menu_req.height) <= monitor.y + monitor.height)
-    		*y += widget->allocation.height;
+	if ((*y + allocation.height + menu_req.height) <= monitor.y + monitor.height)
+    		*y += allocation.height;
 	else if ((*y - menu_req.height) >= monitor.y)
     		*y -= menu_req.height;
-	else if (monitor.y + monitor.height - (*y + widget->allocation.height) > *y)
-    		*y += widget->allocation.height;
+	else if (monitor.y + monitor.height - (*y + allocation.height) > *y)
+    		*y += allocation.height;
 	else
     		*y -= menu_req.height; 
 
@@ -186,7 +190,7 @@ ev_navigation_action_widget_toggled (GtkToggleToolButton *toggle)
     		return;
 
 	if (gtk_toggle_tool_button_get_active (GTK_TOGGLE_TOOL_BUTTON (button)) &&
-	    !GTK_WIDGET_VISIBLE (button->menu)) {
+	    !gtk_widget_get_visible (GTK_WIDGET (button->menu))) {
 		      /* we get here only when the menu is activated by a key
 		       * press, so that we can select the first menu item */
 		      popup_menu_under_arrow (button, NULL);

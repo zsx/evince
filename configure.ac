@@ -3,13 +3,13 @@
 # *****************************************************************************
 
 m4_define([ev_major_version],[2])
-m4_define([ev_minor_version],[29])
-m4_define([ev_micro_version],[92])
+m4_define([ev_minor_version],[30])
+m4_define([ev_micro_version],[0])
 m4_define([ev_extra_version],[])
 m4_define([ev_version],[ev_major_version.ev_minor_version.ev_micro_version()ev_extra_version])
 
 # The evince API version
-m4_define([ev_api_version], [2.29])
+m4_define([ev_api_version], [2.30])
 
 # Libtool versioning. The backend and view libraries have separate versions.
 # Before making a release, the libtool version should be modified.
@@ -122,7 +122,7 @@ AM_CONDITIONAL([PLATFORM_WIN32],[test "$with_platform" = "win32"])
 
 dnl Specify required versions of dependencies
 DBUS_GLIB_REQUIRED=0.70
-GTK_REQUIRED=2.14.0
+GTK_REQUIRED=2.20.0
 GLIB_REQUIRED=2.18.0
 KEYRING_REQUIRED=2.22.0
 AC_SUBST([GLIB_REQUIRED])
@@ -761,7 +761,6 @@ backend/pixbuf/Makefile
 backend/ps/Makefile
 backend/tiff/Makefile
 cut-n-paste/Makefile
-cut-n-paste/evinfobar/Makefile
 cut-n-paste/gimpcellrenderertoggle/Makefile
 cut-n-paste/smclient/Makefile
 cut-n-paste/toolbar-editor/Makefile

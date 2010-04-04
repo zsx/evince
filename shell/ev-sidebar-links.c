@@ -332,7 +332,7 @@ build_popup_menu (EvSidebarLinks *sidebar)
 
 	menu = gtk_menu_new ();
 	item = gtk_image_menu_item_new_from_stock (GTK_STOCK_PRINT, NULL);
-	gtk_label_set_label (GTK_LABEL (GTK_BIN (item)->child), _("Print…"));
+	gtk_label_set_label (GTK_LABEL (gtk_bin_get_child (GTK_BIN (item))), _("Print…"));
 	gtk_widget_show (item);
 	gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
 	g_signal_connect (item, "activate",
@@ -542,7 +542,7 @@ ev_sidebar_links_set_current_page (EvSidebarLinks *sidebar_links,
 	GtkTreeIter iter;
 
 	/* Widget is not currently visible */
-	if (!GTK_WIDGET_MAPPED (sidebar_links))
+	if (!gtk_widget_get_mapped (GTK_WIDGET (sidebar_links)))
 		return;
 	
 	selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (sidebar_links->priv->tree_view));
