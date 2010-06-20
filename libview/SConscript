@@ -3,8 +3,11 @@ import tempfile
 import re
 import subprocess
 import os
+from xml.etree.ElementTree import Element, SubElement, XMLTreeBuilder, tostring
+from uuid import uuid4
+from site_init import *
 
-Import('env EV_BINARY_VERSION EV_API_VERSION gen_def')
+Import('env EV_BINARY_VERSION EV_API_VERSION gen_def dev_target run_target')
 '''
 	-DDATADIR=\"$(pkgdatadir)\"		\
 	-DG_LOG_DOMAIN=\"EvinceView\"		\
@@ -68,6 +71,9 @@ env_evview.MarshalGenerator(['ev-view-marshal.c', 'ev-view-marshal.h'], 'ev-view
 env_evview.Depends(['ev-view-marshal.c', 'ev-view-marshal.h'], 'SConscript')
 
 env_evview.Alias('install', env_evview.Install('$PREFIX/include/evince/%s/libview' % EV_API_VERSION, INST_H_FILES + ['ev-view-type-builtins.h']))
+dev_dinclude = find_or_make_dir_with_parent(dev_target, 'include/evince/_%s/libview' % EV_API_VERSION, 'include/evince/%s/libview' % EV_API_VERSION)
+dev_cheaders = find_or_make_component(dev_dinclude, 'headers_evview')
+FileElement(dev_cheaders, INST_H_FILES + ['ev-view-type-builtins.h'], 'include/evince/%s/libview' % EV_API_VERSION, env_evview)
 
 env_evview.ParseConfig('pkg-config glib-2.0 --cflags --libs')
 env_evview.ParseConfig('pkg-config gio-2.0 --cflags --libs')
@@ -80,12 +86,26 @@ env_evview.ParseConfig('pkg-config pangocairo --cflags --libs')
 #env_evview.Append(LIBS = ['msimg32',  'gdi32', 'user32'])
 env_evview['DEF_ADDONS'] = ('ev_sizing_mode_get_type\n',)
 env_evview.Command('libview.def', INST_H_FILES + ['ev-view-type-builtins.h'], gen_def)
-dll = env_evview.SharedLibrary(['libevview' + env_evview['LIB_SUFFIX'] + '.dll', 'evview.lib'], libevview_la_SOURCES + ['libview.def', '#libdocument/evdocument.lib'])
+dllname = 'libevview' + env_evview['LIB_SUFFIX'] + '.dll'
+dll = env_evview.SharedLibrary([dllname, 'evview.lib'], libevview_la_SOURCES + ['libview.def', '#libdocument/evdocument.lib'])
 env_evview.AddPostAction(dll, 'mt.exe -nologo -manifest ${TARGET}.manifest -outputresource:$TARGET;2')
 env_evview.Depends(dll, ['ev-view-type-builtins.h'])
-env_evview.Alias('install', env_evview.Install('$PREFIX/bin', 'libevview' + env_evview['LIB_SUFFIX'] + '.dll'))
+
+env_evview.Alias('install', env_evview.Install('$PREFIX/bin', dllname))
+run_dbin = find_tag_by_id(run_target, 'Directory', 'bin')
+run_dbin = find_or_make_dir_with_parent(run_target, 'bin')
+run_cdll = find_or_make_component(run_dbin, 'dlls')
+FileElement(run_cdll, dllname, 'bin', env_evview)
+
 env_evview.Alias('install', env_evview.Install('$PREFIX/lib', 'evview.lib'))
 env_evview.Alias('install', env_evview.InstallAs('$PREFIX/lib/libevview.lib', 'evview.lib'))
+dev_dlib = find_or_make_dir_with_parent(dev_target, 'lib')
+dev_clib = find_or_make_component(dev_dlib, 'libs')
+FileElement(dev_clib, ['evview.lib', 'libevview.lib'], 'lib', env_evview)
+
 if env_evview['DEBUG'] == 1:
     env_evview.Alias('install', env_evview.Install('$PREFIX/pdb', 'libevview.pdb'))
+    dev_dpdb = find_or_make_dir_with_parent(dev_target, 'pdb')
+    dev_cpdb = find_or_make_component(dev_dpdb, 'pdbs')
+    FileElement(dev_cpdb, env_evview['PDB'], 'pdb', env_evview)
 

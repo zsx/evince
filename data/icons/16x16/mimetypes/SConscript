@@ -1,6 +1,11 @@
 # vim: ft=python expandtab
-
-Import('env')
+from xml.etree.ElementTree import SubElement
+from uuid import uuid4
+from site_init import *
+Import('env run_target')
 
 icons_DATA = "x-office-presentation.png"
 env.Alias('install', env.Install('$PREFIX/share/evince/icons/hicolor/16x16/mimetypes', icons_DATA))
+run_dmimetypes = find_or_make_dir_with_parent(run_target, 'share/evince/icons/hicolor/i16x16/i16x16mimetypes', 'share/evince/icons/hicolor/16x16/mimetypes')
+run_cmimetype = SubElement(run_dmimetypes, "Component", Id='c16x16mimetypes', Guid=str(uuid4()).upper())
+FileElement(run_cmimetype, icons_DATA, 'share/evince/icons/hicolor/16x16/mimetypes', env, randomize_id = True)

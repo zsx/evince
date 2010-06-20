@@ -1,6 +1,9 @@
 # vim: ft=python expandtab
+from xml.etree.ElementTree import SubElement
+from uuid import uuid4
+from site_init import *
 
-Import('env')
+Import('env run_target dev_target')
 '''
 	-I$(top_srcdir)				\
 	-I$(top_srcdir)/libdocument		\
@@ -71,6 +74,27 @@ evince = env_evshell.Program(['evince.exe'], evince_SOURCES + ['#properties/evpr
 env_evshell.AddPostAction(evince, 'mt.exe -nologo -manifest ${TARGET}.manifest -outputresource:$TARGET;2')
 if not env_evshell['DEBUG']:
     env_evshell.AddPostAction(evince, 'editbin.exe /subsystem:windows $TARGET')
+
 env_evshell.Alias('install', env_evshell.Install('$PREFIX/bin', 'evince.exe'))
+run_dbin = find_tag_by_id(run_target, 'Directory', 'bin')
+if run_dbin == None:
+    run_dbin = SubElement(run_target, 'Directory', Id='bin', Name='bin')
+    run_cexe = SubElement(run_dbin, "Component", Id='exes', Guid=str(uuid4()).upper())
+else:
+    run_cexe = find_tag_by_id(run_dbin, 'Component', 'exes')
+    if run_cexe == None:
+        run_cexe = SubElement(run_dbin, "Component", Id='exes', Guid=str(uuid4()).upper())
+FileElement(run_cexe, 'evince.exe', 'bin', env_evshell)
+
 if env_evshell['DEBUG'] == 1:
     env_evshell.Alias('install', env_evshell.Install('$PREFIX/pdb', 'evince.pdb'))
+    dev_dpdb = find_tag_by_id(dev_target, 'Directory', 'pdb')
+    if dev_dpdb == None:
+        dev_dpdb = SubElement(dev_target, 'Directory', Id='pdb', Name='pdb')
+        dev_cpdb = SubElement(dev_dpdb, "Component", Id='pdbs', Guid=str(uuid4()).upper())
+    else:
+        dev_cpdb = find_tag_by_id(dev_dpdb, 'Component', 'pdbs')
+        if dev_cpdb == None:
+            dev_cpdb = SubElement(dev_dpdb, "Component", Id='pdbs', Guid=str(uuid4()).upper())
+    FileElement(dev_cpdb, env_evshell['PDB'], 'pdb', env_evshell)
+

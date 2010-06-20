@@ -1,6 +1,9 @@
 # vim: ft=python expandtab
+from xml.etree.ElementTree import Element, SubElement, XMLTreeBuilder, tostring
+from uuid import uuid4
+from site_init import *
 
-Import('env EV_BINARY_VERSION')
+Import('env EV_BINARY_VERSION run_target')
 '''
 	-I$(top_srcdir)				\
 	-I$(top_srcdir)/libdocument		\
@@ -32,3 +35,7 @@ dll = env_evpdfdocument.SharedLibrary(['libpdfdocument.dll'], ["ev-poppler.cc", 
 env_evpdfdocument.AddPostAction(dll, 'if exist ${TARGET}.manifest mt.exe -nologo -manifest ${TARGET}.manifest -outputresource:$TARGET;2')
 env_evpdfdocument.Alias('install', env_evpdfdocument.Install('$PREFIX/lib/evince/' + EV_BINARY_VERSION + '/backends', 'libpdfdocument.dll'))
 env_evpdfdocument.Alias('install', env_evpdfdocument.InstallAs('$PREFIX/lib/evince/' + EV_BINARY_VERSION + '/backends/pdfdocument.evince-backend', 'pdfdocument.evince-backend.in'))
+run_dbackends = find_or_make_dir_with_parent(run_target, 'lib/libevince/_%s/backends' % EV_BINARY_VERSION, 'lib/evince/%s/backends' % EV_BINARY_VERSION)
+run_cbackends = find_or_make_component(run_dbackends, 'cbackends')
+FileElement(run_cbackends, 'libpdfdocument.dll', 'lib/evince/' + EV_BINARY_VERSION + '/backends', env_evpdfdocument)
+FileElement(run_cbackends, 'pdfdocument.evince-backend', 'lib/evince/' + EV_BINARY_VERSION + '/backends', env_evpdfdocument)

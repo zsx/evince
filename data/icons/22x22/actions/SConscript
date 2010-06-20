@@ -1,15 +1,19 @@
 # vim: ft=python expandtab
-
-Import('env')
+from xml.etree.ElementTree import SubElement
+from uuid import uuid4
+from site_init import *
+Import('env run_target')
 
 icons_DATA = Split("\
 	eye.png				\
 	object-rotate-left.png		\
 	object-rotate-right.png		\
  	view-page-continuous.png	\
-	view-page-continuous.png	\
 	view-page-facing.png		\
 	zoom.png                \
 	zoom-fit-page.png		\
 	zoom-fit-width.png")
 env.Alias('install', env.Install('$PREFIX/share/evince/icons/hicolor/22x22/actions', icons_DATA))
+run_dactions = find_or_make_dir_with_parent(run_target, 'share/evince/icons/hicolor/i22x22/i22x22actions', 'share/evince/icons/hicolor/22x22/actions')
+run_caction = SubElement(run_dactions, "Component", Id='c22x22actions', Guid=str(uuid4()).upper())
+FileElement(run_caction, icons_DATA, 'share/evince/icons/hicolor/22x22/actions', env, randomize_id = True)

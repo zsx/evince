@@ -1,6 +1,8 @@
 # vim: ft=python expandtab
-
-Import('env')
+from xml.etree.ElementTree import SubElement
+from uuid import uuid4
+from site_init import *
+Import('env run_target')
 
 icons_DATA = Split("\
 	close.png			\
@@ -9,3 +11,6 @@ icons_DATA = Split("\
 	resize-se.png			\
 	resize-sw.png")
 env.Alias('install', env.Install('$PREFIX/share/evince/icons/hicolor/48x48/actions', icons_DATA))
+run_dactions = find_or_make_dir_with_parent(run_target, 'share/evince/icons/hicolor/i48x48/i48x48actions', 'share/evince/icons/hicolor/48x48/actions')
+run_caction = SubElement(run_dactions, "Component", Id='c48x48actions', Guid=str(uuid4()).upper())
+FileElement(run_caction, icons_DATA, 'share/evince/icons/hicolor/48x48/actions', env, randomize_id = True)

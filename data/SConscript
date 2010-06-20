@@ -1,12 +1,21 @@
 # vim: ft=python expandtab
+from xml.etree.ElementTree import SubElement
+from uuid import uuid4
+from site_init import *
 
-Import('env')
+Import('env run_target')
 
 ui_DATA = Split("\
 	evince-ui.xml			\
 	evince-toolbar.xml		\
 	hand-open.png")
 env.Alias('install', env.Install('$PREFIX/share/evince', ui_DATA))
+run_dshare = find_or_make_dir_with_parent(run_target, 'share/evince')
+run_cui = find_tag_by_id(run_dshare, 'Component', 'uis')
+if run_cui == None:
+    run_cui = SubElement(run_dshare, "Component", Id='uis', Guid=str(uuid4()).upper())
+FileElement(run_cui, ui_DATA, 'share/evince', env)
+
 SConscript(["icons/16x16/actions/SConscript",
             "icons/16x16/apps/SConscript",
             "icons/16x16/mimetypes/SConscript",
@@ -22,5 +31,5 @@ SConscript(["icons/16x16/actions/SConscript",
             "icons/48x48/apps/SConscript",
             "icons/scalable/apps/SConscript",
             "icons/scalable/mimetypes/SConscript"],
-            exports = "env")
+            exports = "env run_target")
 

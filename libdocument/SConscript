@@ -1,6 +1,9 @@
 # vim: ft=python expandtab
+from xml.etree.ElementTree import Element, SubElement, XMLTreeBuilder, tostring
+from uuid import uuid4
+from site_init import *
 
-Import('env EV_BINARY_VERSION EV_API_VERSION gen_def')
+Import('env EV_BINARY_VERSION EV_API_VERSION gen_def dev_target run_target')
 '''
 	-DG_LOG_DOMAIN=\"EvinceDocument\"		\
 	-DEVINCE_UIDIR=\"$(pkgdatadir)\"		\
@@ -111,6 +114,9 @@ env_evdocument.Command('ev-document-type-builtins.h', ['ev-document-type-builtin
 env_evdocument.Command('ev-document-type-builtins.c', ['ev-document-type-builtins.c.template', 'SConscript'] + evdocument_headers, '%s %s\\bin\\glib-mkenums --template $SOURCE %s > $TARGET' % (env_evdocument['PERL'], env_evdocument['PREFIX'], " ".join(map(lambda x: 'libdocument/' + x, evdocument_headers))))
 '''
 env_evdocument.Alias('install', env_evdocument.Install('$PREFIX/include/evince/%s/libdocument' % EV_API_VERSION, evdocument_headers + ['ev-document-type-builtins.h']))
+dev_dinclude = find_or_make_dir_with_parent(dev_target, 'include/evince/_%s/libdocument' % EV_API_VERSION, 'include/evince/%s/libdocument' % EV_API_VERSION)
+dev_cheaders = find_or_make_component(dev_dinclude, 'headers_evdocument')
+FileElement(dev_cheaders, evdocument_headers + ['ev-document-type-builtins.h'], 'include/evince/%s/libdocument' % EV_API_VERSION, env_evdocument)
 
 env_evdocument.ParseConfig('pkg-config glib-2.0 --cflags --libs')
 env_evdocument.ParseConfig('pkg-config gio-2.0 --cflags --libs')
@@ -121,11 +127,25 @@ env_evdocument.ParseConfig('pkg-config pango --cflags --libs')
 #env_evdocument.ParseConfig('pkg-config gmodule-2.0 --cflags --libs')
 #env_evdocument.Append(LIBS = ['msimg32',  'gdi32', 'user32'])
 env_evdocument.Command('libdocument.def', evdocument_headers + ['ev-document-type-builtins.h'], gen_def)
-dll = env_evdocument.SharedLibrary(['libevdocument' + env_evdocument['LIB_SUFFIX'] + '.dll', 'evdocument.lib'], evdocument_sources + ['libdocument.def'])
+dllname ='libevdocument' + env_evdocument['LIB_SUFFIX'] + '.dll'
+dll = env_evdocument.SharedLibrary([dllname, 'evdocument.lib'], evdocument_sources + ['libdocument.def'])
 env_evdocument.AddPostAction(dll, 'mt.exe -nologo -manifest ${TARGET}.manifest -outputresource:$TARGET;2')
-env_evdocument.Alias('install', env_evdocument.Install('$PREFIX/bin', 'libevdocument' + env_evdocument['LIB_SUFFIX'] + '.dll'))
+
+#install dlls
+env_evdocument.Alias('install', env_evdocument.Install('$PREFIX/bin', dllname))
+run_dbin = find_or_make_dir_with_parent(run_target, 'bin')
+run_cdll = find_or_make_component(run_dbin, 'dlls')
+FileElement(run_cdll, dllname, 'bin', env_evdocument)
+
+#install libs
 env_evdocument.Alias('install', env_evdocument.Install('$PREFIX/lib', 'evdocument.lib'))
 env_evdocument.Alias('install', env_evdocument.InstallAs('$PREFIX/lib/libevdocument.lib', 'evdocument.lib'))
+dev_dlib = find_or_make_dir_with_parent(dev_target, 'lib')
+dev_clib = find_or_make_component(dev_dlib, 'libs')
+FileElement(dev_clib, ['evdocument.lib', 'libevdocument.lib'], 'lib', env_evdocument)
+
 if env_evdocument['DEBUG'] == 1:
     env_evdocument.Alias('install', env_evdocument.Install('$PREFIX/pdb', 'libevdocument.pdb'))
-
+    dev_dpdb = find_or_make_dir_with_parent(dev_target, 'pdb')
+    dev_cpdb = find_or_make_component(dev_dpdb, 'pdbs')
+    FileElement(dev_cpdb, env_evdocument['PDB'], 'pdb', env_evdocument)
